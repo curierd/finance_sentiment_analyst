@@ -34,6 +34,15 @@ def get_comment(comment_id):
     return jsonify(get_service().get_comment(comment_id))
 
 
+@comment_bp.route("/api/comments", methods=["POST"])
+def create_comment():
+    data = request.get_json() or {}
+    try:
+        return jsonify(get_service().create_comment(data)), 201
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+
+
 @comment_bp.route("/api/comments/<int:comment_id>", methods=["PATCH"])
 def update_comment(comment_id):
     data = request.get_json()
@@ -42,6 +51,15 @@ def update_comment(comment_id):
         return jsonify(get_service().lock_sentiment(comment_id, sentiment_fix))
     except ValueError as e:
         return jsonify({"error": str(e)}), 400
+
+
+@comment_bp.route("/api/comments/<int:comment_id>", methods=["DELETE"])
+def delete_comment(comment_id):
+    try:
+        get_service().delete_comment(comment_id)
+        return jsonify({"success": True})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
 
 
 @comment_bp.route("/api/stats", methods=["GET"])

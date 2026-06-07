@@ -13,11 +13,49 @@
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/comments` | 分页查询评论列表 |
+| POST | `/api/comments` | 新增评论 |
 | GET | `/api/comments/<id>` | 获取单条评论 |
 | PATCH | `/api/comments/<id>` | 锁定/解锁情绪 |
+| DELETE | `/api/comments/<id>` | 删除评论 |
 | GET | `/api/stats` | 情绪统计聚合 |
 | GET | `/api/up_masters` | UP主列表 |
 | GET | `/api/videos` | 视频列表 |
+
+---
+
+## POST /api/comments
+
+新增一条评论。
+
+### Request Body
+
+```json
+{
+  "platform": "xueqiu",
+  "content": "测试评论内容",
+  "author_name": "测试用户",
+  "likes": 0,
+  "video_title": "可选",
+  "symbol": "SH600519"
+}
+```
+
+`platform` 可选值：`bilibili` / `xueqiu` / `xiaohongshu`（允许 null）。
+
+### Response
+
+`201 Created`
+
+```json
+{
+  "id": 1234,
+  "platform": "xueqiu",
+  "content": "测试评论内容",
+  ...
+}
+```
+
+`content` 为空返回 `400`。
 
 ---
 
@@ -112,6 +150,22 @@
   ...
 }
 ```
+
+无效值返回 `400`。
+
+---
+
+## DELETE /api/comments/<id>
+
+删除指定评论。
+
+### Response
+
+```json
+{ "success": true }
+```
+
+评论不存在返回 `404`。
 
 无效值返回 `400`。
 

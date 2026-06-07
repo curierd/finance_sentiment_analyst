@@ -118,6 +118,42 @@ class CommentRepository:
         conn.close()
         return [row_to_dict(r) for r in rows]
 
+    def insert(self, data):
+        conn = get_db()
+        conn.execute("""
+            INSERT INTO comments
+                (platform, comment_id, author_name, content, likes,
+                 source_url, video_bvid, video_title, up_name, up_uid,
+                 symbol, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            data.get("platform"),
+            data.get("comment_id"),
+            data.get("author_name"),
+            data.get("content"),
+            data.get("likes", 0),
+            data.get("source_url"),
+            data.get("video_bvid"),
+            data.get("video_title"),
+            data.get("up_name"),
+            data.get("up_uid"),
+            data.get("symbol"),
+            data.get("created_at"),
+        ))
+        conn.commit()
+        new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        row = conn.execute("SELECT * FROM comments WHERE id = ?", (new_id,)).fetchone()
+        conn.close()
+        return row_to_dict(row)
+
+    def delete(self, comment_id):
+        conn = get_db()
+        conn.execute("DELETE FROM comments WHERE id = ?", (comment_id,))
+        conn.commit()
+        changes = conn.total_changes
+        conn.close()
+        return changes > 0
+
     def _build_where(self, filters):
         where, params = [], []
         p = filters.get("platform")

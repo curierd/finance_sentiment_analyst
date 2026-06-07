@@ -28,3 +28,16 @@ class CommentService:
 
     def get_videos(self):
         return self.repo.find_videos()
+
+    def create_comment(self, data):
+        if not data.get("content"):
+            raise ValueError("content is required")
+        if data.get("platform") not in ("bilibili", "xueqiu", "xiaohongshu", None):
+            raise ValueError("Invalid platform value")
+        return self.repo.insert(data)
+
+    def delete_comment(self, comment_id):
+        deleted = self.repo.delete(comment_id)
+        if not deleted:
+            raise ValueError("Comment not found")
+        return deleted

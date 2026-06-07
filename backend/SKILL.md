@@ -39,6 +39,12 @@ updated = repo.update_sentiment_fix(comment_id, "负面")
 
 # 解除锁定
 repo.update_sentiment_fix(comment_id, None)
+
+# 新增评论
+new_row = repo.insert({"platform": "xueqiu", "content": "测试", "author_name": "用户"})
+
+# 删除评论（返回 bool）
+deleted = repo.delete(comment_id)
 ```
 
 ## 业务逻辑
@@ -55,6 +61,12 @@ svc.list_comments({"locked": "1", "sentiment": "负面"})
 svc.get_stats()
 svc.get_up_masters()
 svc.get_videos()
+
+# 新增评论（content必填，platform仅允许bilibili/xueqiu/xiaohongshu）
+svc.create_comment({"platform": "xueqiu", "content": "新评论"})
+
+# 删除评论（不存在抛 ValueError）
+svc.delete_comment(comment_id)
 ```
 
 ## 路由（HTTP层）
@@ -66,8 +78,10 @@ svc.get_videos()
 | 方法 | 路径 | 参数 | 说明 |
 |------|------|------|------|
 | GET | `/api/comments` | platform, up_name, video_title, sentiment, author, locked, page, page_size | 分页列表 |
+| POST | `/api/comments` | body: `{platform, content, author_name, ...}` | 新增评论 |
 | GET | `/api/comments/<id>` | — | 单条 |
 | PATCH | `/api/comments/<id>` | body: `{sentiment_fix}` | 锁定/解锁 |
+| DELETE | `/api/comments/<id>` | — | 删除评论 |
 | GET | `/api/stats` | — | 聚合统计 |
 | GET | `/api/up_masters` | — | UP主列表 |
 | GET | `/api/videos` | — | 视频列表 |
@@ -82,7 +96,7 @@ svc.get_videos()
 ## 测试
 
 ```bash
-# 全部测试（38个）
+# 全部测试（42个）
 python -m unittest tests.test_comment_repository tests.test_comment_service tests.test_routes -v
 
 # 分层测试

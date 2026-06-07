@@ -84,6 +84,34 @@ class TestRoutes(unittest.TestCase):
         self.assertIsNotNone(data)
         self.assertIsNone(data.get("sentiment_fix"))
 
+    def test_post_comment_create(self):
+        resp = self.client.post("/api/comments",
+            json={"platform": "xueqiu", "content": "测试评论", "author_name": "测试用户"},
+            content_type="application/json")
+        self.assertEqual(resp.status_code, 201)
+        data = resp.get_json()
+        self.assertIn("id", data)
+        self.assertEqual(data["content"], "测试评论")
+
+    def test_post_comment_rejects_empty_content(self):
+        resp = self.client.post("/api/comments",
+            json={"platform": "xueqiu", "content": ""},
+            content_type="application/json")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_delete_comment_returns_success(self):
+        # Create then delete
+        resp = self.client.post("/api/comments",
+            json={"platform": "xueqiu", "content": "待删除评论"},
+            content_type="application/json")
+        new_id = resp.get_json()["id"]
+        del_resp = self.client.delete("/api/comments/" + str(new_id))
+        self.assertEqual(del_resp.status_code, 200)
+
+    def test_delete_comment_returns_404_for_missing(self):
+        resp = self.client.delete("/api/comments/999999")
+        self.assertEqual(resp.status_code, 404)
+
     def test_get_stats_returns_200(self):
         resp = self.client.get("/api/stats")
         self.assertEqual(resp.status_code, 200)
