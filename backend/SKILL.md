@@ -59,6 +59,7 @@ svc.lock_sentiment(comment_id, "正面")
 # 列表/统计/UP主/视频
 svc.list_comments({"locked": "1", "sentiment": "负面"})
 svc.get_stats()
+svc.get_stats_by_date("day")    # → {period: {total, positive, neutral, negative}}
 svc.get_up_masters()
 svc.get_videos()
 
@@ -83,6 +84,7 @@ svc.delete_comment(comment_id)
 | PATCH | `/api/comments/<id>` | body: `{sentiment_fix}` | 锁定/解锁 |
 | DELETE | `/api/comments/<id>` | — | 删除评论 |
 | GET | `/api/stats` | — | 聚合统计 |
+| GET | `/api/stats/timeline` | granularity: day/week/month | 时间线统计 |
 | GET | `/api/up_masters` | — | UP主列表 |
 | GET | `/api/videos` | — | 视频列表 |
 

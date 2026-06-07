@@ -85,8 +85,8 @@ class CommentRepository:
 
         conn.close()
         return {
-            "auto": {r["s"]: r["cnt"] for r in auto},
-            "locked": {r["s"]: r["cnt"] for r in locked},
+            "auto": {r["s"]: r["cnt"] for r in auto if r["s"]},
+            "locked": {r["s"]: r["cnt"] for r in locked if r["s"]},
             "locked_count": sum(r["cnt"] for r in locked),
             "auto_count": sum(r["cnt"] for r in auto),
             "like_weighted": {
@@ -94,6 +94,44 @@ class CommentRepository:
                 for r in weighted if r["s"]
             },
         }
+
+    def stats_by_date(self, granularity="day"):
+        if granularity not in ("day", "week", "month"):
+            granularity = "day"
+        date_format = {
+            "day": "%Y-%m-%d",
+            "week": "%Y-%W",
+            "month": "%Y-%m",
+        }[granularity]
+        conn = get_db()
+        rows = conn.execute(f"""
+            SELECT
+                strftime('{date_format}',
+                    COALESCE(NULLIF(collected_at, ''), NULLIF(created_at, ''), 'now')
+                ) as period,
+                COALESCE(sentiment_fix, sentiment) as s,
+                COUNT(*) as cnt,
+                SUM(likes) as likes
+            FROM comments
+            WHERE s IS NOT NULL
+            GROUP BY period, s
+            ORDER BY period ASC
+        """).fetchall()
+        conn.close()
+
+        # Build {period: {sentiment: {cnt, likes}}}
+        by_period = {}
+        for r in rows:
+            p = r["period"]
+            if p is None:
+                continue
+            if p not in by_period:
+                by_period[p] = {"total": 0, "positive": 0, "neutral": 0, "negative": 0}
+            sentiment_key = {"正面": "positive", "中性": "neutral", "负面": "negative"}.get(r["s"])
+            if sentiment_key:
+                by_period[p][sentiment_key] = r["cnt"]
+                by_period[p]["total"] += r["cnt"]
+        return by_period
 
     def find_up_masters(self):
         conn = get_db()

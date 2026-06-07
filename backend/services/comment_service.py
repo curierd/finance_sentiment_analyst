@@ -41,3 +41,8 @@ class CommentService:
         if not deleted:
             raise ValueError("Comment not found")
         return deleted
+
+    def get_stats_by_date(self, granularity="day"):
+        if granularity not in ("day", "week", "month"):
+            granularity = "day"
+        return self.repo.stats_by_date(granularity)

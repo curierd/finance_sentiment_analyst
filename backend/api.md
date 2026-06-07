@@ -18,6 +18,7 @@
 | PATCH | `/api/comments/<id>` | 锁定/解锁情绪 |
 | DELETE | `/api/comments/<id>` | 删除评论 |
 | GET | `/api/stats` | 情绪统计聚合 |
+| GET | `/api/stats/timeline` | 按时间线情绪聚合 |
 | GET | `/api/up_masters` | UP主列表 |
 | GET | `/api/videos` | 视频列表 |
 
@@ -166,6 +167,37 @@
 ```
 
 评论不存在返回 `404`。
+
+---
+
+## GET /api/stats/timeline
+
+按时间粒度聚合情绪统计，以评论发布时间（`created_at`）为准。
+
+### Query Parameters
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `granularity` | `day` | 粒度：`day` / `week` / `month` |
+
+### Response
+
+```json
+{
+  "2026-06-05": {
+    "total": 107,
+    "positive": 23,
+    "neutral": 63,
+    "negative": 21
+  },
+  "2026-06-06": {
+    "total": 110,
+    "positive": 57,
+    "neutral": 48,
+    "negative": 5
+  }
+}
+```
 
 无效值返回 `400`。
 

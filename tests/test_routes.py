@@ -112,6 +112,23 @@ class TestRoutes(unittest.TestCase):
         resp = self.client.delete("/api/comments/999999")
         self.assertEqual(resp.status_code, 404)
 
+    def test_get_stats_timeline_returns_200(self):
+        resp = self.client.get("/api/stats/timeline")
+        self.assertEqual(resp.status_code, 200)
+
+    def test_get_stats_timeline_has_period_keys(self):
+        resp = self.client.get("/api/stats/timeline?granularity=day")
+        data = resp.get_json()
+        self.assertIsInstance(data, dict)
+        periods = list(data.keys())
+        if periods:
+            self.assertIn("total", data[periods[0]])
+
+    def test_get_stats_timeline_granularity(self):
+        for g in ("day", "week", "month"):
+            resp = self.client.get("/api/stats/timeline?granularity=" + g)
+            self.assertEqual(resp.status_code, 200)
+
     def test_get_stats_returns_200(self):
         resp = self.client.get("/api/stats")
         self.assertEqual(resp.status_code, 200)

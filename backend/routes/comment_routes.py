@@ -67,6 +67,14 @@ def get_stats():
     return jsonify(get_service().get_stats())
 
 
+@comment_bp.route("/api/stats/timeline", methods=["GET"])
+def get_stats_timeline():
+    granularity = request.args.get("granularity", "day")
+    if granularity not in ("day", "week", "month"):
+        granularity = "day"
+    return jsonify(get_service().get_stats_by_date(granularity))
+
+
 @comment_bp.route("/api/up_masters", methods=["GET"])
 def get_up_masters():
     return jsonify(get_service().get_up_masters())
