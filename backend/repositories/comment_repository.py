@@ -212,7 +212,11 @@ class CommentRepository:
             params.append(s)
         a = filters.get("author")
         if a:
-            where.append("author_name LIKE ?")
+            # Search both the commenter name and the UP主 / channel owner name
+            # so a query like "李大霄" finds UP主 李大霄's videos even when the
+            # individual commenter is recorded as "ST大霄" or similar.
+            where.append("(author_name LIKE ? OR up_name LIKE ?)")
+            params.append(f"%{a}%")
             params.append(f"%{a}%")
         locked = filters.get("locked")
         if locked == "1":

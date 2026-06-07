@@ -72,6 +72,7 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
 .card-content { font-size: 14px; line-height: 1.6; color: var(--text); margin: 8px 0; word-break: break-word; }
 .card-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; }
 .card-meta span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-meta-muted { opacity: 0.6; font-style: italic; }
 
 .sentiment-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sentiment-badge { display: flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
@@ -151,6 +152,22 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
 .chart-modal-close:hover { color: var(--text); }
 .chart-modal-img { display: block; max-width: 100%; border-radius: 6px; }
 .chart-modal-title { text-align: center; font-size: 14px; color: var(--text-dim); margin-bottom: 12px; }
+
+.confirm-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 1100; }
+.confirm-modal.open { display: flex; }
+.confirm-modal-content { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; min-width: 320px; max-width: 90vw; }
+.confirm-modal-title { font-size: 15px; color: var(--text); font-weight: 600; margin-bottom: 10px; }
+.confirm-modal-text { font-size: 13px; color: var(--text-dim); line-height: 1.6; margin-bottom: 18px; word-break: break-word; max-height: 120px; overflow-y: auto; }
+.confirm-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.confirm-btn { padding: 6px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+.confirm-btn-cancel { background: none; border: 1px solid var(--border); color: var(--text-dim); }
+.confirm-btn-cancel:hover { border-color: var(--accent); color: var(--text); }
+.confirm-btn-ok { background: var(--neg); border: 1px solid var(--neg); color: #fff; }
+.confirm-btn-ok:hover { opacity: 0.85; }
+.confirm-btn-ok:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.card-delete { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 3px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-left: 6px; }
+.card-delete:hover { color: var(--neg); border-color: var(--neg); }
 </style>
 </head>
 <body>
@@ -182,8 +199,8 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
       </button>
 
       <h3>搜索</h3>
-      <input type="text" id="authorFilter" placeholder="作者 / UP主" oninput="debounceLoad()">
-      <input type="text" id="videoFilter" placeholder="视频 / 帖子标题" oninput="debounceLoad()">
+      <input type="text" id="authorFilter" placeholder="作者 / UP主">
+      <input type="text" id="videoFilter" placeholder="视频 / 帖子标题">
 
       <h3>情绪</h3>
       <button class="filter-btn active all" data-sentiment="" onclick="setSentimentFilter('')">
@@ -200,7 +217,7 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
       </button>
 
       <h3>点赞数 &gt;</h3>
-      <input type="number" id="likesFilter" placeholder="0" min="0" oninput="debounceLoad()">
+      <input type="number" id="likesFilter" placeholder="0" min="0">
     </aside>
 
     <main class="main">
@@ -262,6 +279,17 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
     <button class="chart-modal-close" onclick="closeChartModal()">&times;</button>
     <div class="chart-modal-title" id="chartModalTitle">情绪时间线</div>
     <img class="chart-modal-img" id="chartModalImg" src="" alt="情绪时间线">
+  </div>
+</div>
+
+<div class="confirm-modal" id="confirmModal" onclick="if(event.target===this)closeConfirmModal()">
+  <div class="confirm-modal-content">
+    <div class="confirm-modal-title" id="confirmModalTitle">确认删除</div>
+    <div class="confirm-modal-text" id="confirmModalText"></div>
+    <div class="confirm-modal-actions">
+      <button class="confirm-btn confirm-btn-cancel" onclick="closeConfirmModal()">取消</button>
+      <button class="confirm-btn confirm-btn-ok" id="confirmOkBtn" onclick="confirmOk()">删除</button>
+    </div>
   </div>
 </div>
 
@@ -461,6 +489,15 @@ function renderCard(item) {
   var videoInfo = item.video_title || item.symbol ? '<span>' + esc(item.video_title || item.symbol) + '</span>' : '';
   var upInfo = item.up_name ? '<span>UP: ' + esc(item.up_name) + '</span>' : '';
   var authorInfo = item.author_name ? '<span>' + esc(item.author_name) + '</span>' : '';
+  // Prefer created_at (real comment time) — only fall back to collected_at
+  // (when we ingested the comment) when a real date exists there. Both
+  // empty? Show a muted placeholder so the row layout stays consistent
+  // and users can see "this card has no date info" instead of wondering
+  // if the field is broken.
+  var realDate = (item.created_at && item.created_at.substring(0, 10)) || '';
+  var dateInfo = realDate
+    ? '<span>📅 ' + esc(realDate) + '</span>'
+    : '<span class="card-meta-muted">📅 未知日期</span>';
   var lockSvg = '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2z"/></svg>';
   var unlockBtn = isFixed ? '<button class="unlock-btn" onclick="clearFix(' + item.id + ')">解除</button>' : '';
   return '<div class="card">' +
@@ -470,7 +507,7 @@ function renderCard(item) {
       '<span class="card-likes"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.093.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' + (item.likes || 0) + '</span>' +
     '</div>' +
     '<div class="card-content">' + esc(item.content || '') + '</div>' +
-    '<div class="card-meta">' + videoInfo + upInfo + authorInfo + '</div>' +
+    '<div class="card-meta">' + videoInfo + upInfo + authorInfo + dateInfo + '</div>' +
     '<div class="sentiment-row">' +
       '<div class="sentiment-badge ' + posClass + '">' + (isFixed ? lockSvg : '') + displaySentiment + '</div>' +
       '<div class="sentiment-selector">' +
@@ -478,6 +515,7 @@ function renderCard(item) {
         '<button class="neu ' + (displaySentiment==='中性'?'selected':'') + '" onclick="setSentiment(' + item.id + ',\'中性\')">中性</button>' +
         '<button class="neg ' + (displaySentiment==='负面'?'selected':'') + '" onclick="setSentiment(' + item.id + ',\'负面\')">负面</button>' +
         unlockBtn +
+        '<button class="card-delete" title="删除评论" onclick="askDelete(' + item.id + ')">删除</button>' +
       '</div>' +
     '</div></div>';
 }
@@ -498,6 +536,49 @@ function setSentiment(id, sentiment) {
 function clearFix(id) {
   fetch(API + '/comments/' + id, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({sentiment_fix: null}) })
     .then(function() { loadComments(); loadStats(); });
+}
+
+var pendingDeleteId = null;
+function askDelete(id) {
+  pendingDeleteId = id;
+  // Try to find the comment content for a clearer confirm message
+  var card = document.querySelector('.card button.card-delete[onclick="askDelete(' + id + ')"]');
+  var preview = '';
+  if (card) {
+    var content = card.closest('.card').querySelector('.card-content');
+    if (content) preview = content.textContent.trim();
+  }
+  var truncated = preview.length > 60 ? preview.substring(0, 60) + '…' : preview;
+  document.getElementById('confirmModalText').textContent =
+    (truncated ? '评论内容：' + truncated + '\n\n' : '') + '确定要删除这条评论吗？此操作无法撤销。';
+  document.getElementById('confirmOkBtn').disabled = false;
+  document.getElementById('confirmOkBtn').textContent = '删除';
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirmModal').classList.remove('open');
+  pendingDeleteId = null;
+}
+
+function confirmOk() {
+  if (!pendingDeleteId) return;
+  var id = pendingDeleteId;
+  var btn = document.getElementById('confirmOkBtn');
+  btn.disabled = true;
+  btn.textContent = '删除中...';
+  fetch(API + '/comments/' + id, { method: 'DELETE' })
+    .then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      closeConfirmModal();
+      loadComments();
+      loadStats();
+    })
+    .catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = '删除';
+      alert('删除失败：' + err.message);
+    });
 }
 
 function setSentimentFilter(val) {
@@ -532,6 +613,16 @@ function goPage(p) {
   state.page = p;
   loadComments();
   document.querySelector('.main').scrollTop = 0;
+}
+
+// Debounced version of loadComments — triggered by sidebar filter inputs
+var debounceTimer = null;
+function debounceLoad() {
+  if (debounceTimer) clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(function() {
+    state.page = 1;
+    loadComments();
+  }, 250);
 }
 
 document.querySelectorAll('.platform-tabs button').forEach(function(btn) {
