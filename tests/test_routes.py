@@ -1,10 +1,16 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Integration tests for comment routes via Flask test client"""
 
 import unittest
 import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from tests.helpers import setup_test_db
+
+# Must call setup_test_db() BEFORE importing any backend modules
+# so that config.py picks up the temp DB path.
+setup_test_db()
 
 from flask import Flask
 from backend.routes.comment_routes import comment_bp
@@ -13,17 +19,15 @@ from backend.routes.comment_routes import comment_bp
 class TestRoutes(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # Use the SAME test DB as test_comment_repository/test_comment_service
-        # so no cross-test pollution occurs
-        import sqlite3, os
-        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "db", "comments.db")
-        conn = sqlite3.connect(db_path)
-        row = conn.execute("SELECT id FROM comments LIMIT 1").fetchone()
-        cls.test_id = row[0] if row else 1
-        conn.close()
         app = Flask(__name__)
         app.register_blueprint(comment_bp)
         cls.client = app.test_client()
+
+        # Get a real ID from the isolated test DB
+        from backend.services.comment_service import CommentService
+        svc = CommentService()
+        result = svc.list_comments({"page_size": 1})
+        cls.test_id = result["items"][0]["id"] if result["items"] else 1
 
     # GET /api/comments
     def test_get_comments_returns_200(self):

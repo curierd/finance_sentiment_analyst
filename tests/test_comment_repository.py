@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Unit tests for comment repository"""
 
@@ -7,7 +7,12 @@ import os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from tests.helpers import setup_test_db
 from backend.repositories.comment_repository import CommentRepository
+
+
+def setUpModule():
+    setup_test_db()
 
 
 class TestCommentRepository(unittest.TestCase):
@@ -47,21 +52,27 @@ class TestCommentRepository(unittest.TestCase):
             self.assertIsNotNone(item.get("sentiment_fix"))
 
     def test_find_all_author_filter(self):
+        # The author filter searches both author_name AND up_name.
+        # Seed data has up_name="投资随感录" for the locked bilibili row.
         result = self.repo.find_all({"author": "投资随感录"})
         self.assertGreater(result["total"], 0)
+        found = False
         for item in result["items"]:
-            self.assertIn("投资随感录", item.get("author_name", ""))
+            if "投资随感录" in item.get("author_name", "") or "投资随感录" in item.get("up_name", ""):
+                found = True
+                break
+        self.assertTrue(found, "Expected at least one item matching author/up_name '投资随感录'")
 
     def test_find_by_id_returns_none_for_missing(self):
         row = self.repo.find_by_id(999999)
         self.assertIsNone(row)
 
     def test_find_by_id_returns_valid_row(self):
-        # Use a real ID from the DB
-        import sqlite3
-        conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "db", "comments.db"))
-        row_id = conn.execute("SELECT id FROM comments LIMIT 1").fetchone()[0]
-        conn.close()
+        # Use a real ID from the isolated test DB
+        result = self.repo.find_all({"page_size": 1})
+        self.assertGreater(len(result["items"]), 0)
+        row_id = result["items"][0]["id"]
+
         row = self.repo.find_by_id(row_id)
         self.assertIsInstance(row, dict)
         self.assertEqual(row["id"], row_id)

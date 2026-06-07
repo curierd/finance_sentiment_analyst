@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Unit tests for comment service"""
 
@@ -7,13 +7,24 @@ import os, sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from tests.helpers import setup_test_db
 from backend.services.comment_service import CommentService
+
+
+def setUpModule():
+    setup_test_db()
 
 
 class TestCommentService(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.svc = CommentService()
+
+    def _get_first_id(self):
+        """Get a real comment ID from the isolated test DB."""
+        result = self.svc.list_comments({"page_size": 1})
+        self.assertGreater(len(result["items"]), 0)
+        return result["items"][0]["id"]
 
     def test_list_comments_returns_pagination(self):
         result = self.svc.list_comments()
@@ -22,12 +33,7 @@ class TestCommentService(unittest.TestCase):
         self.assertIn("pages", result)
 
     def test_get_comment_returns_dict(self):
-        import sqlite3
-        row_id = self.svc.get_comment(1) or self.svc.get_comment(999999)
-        # Find a real ID
-        conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "db", "comments.db"))
-        row_id = conn.execute("SELECT id FROM comments LIMIT 1").fetchone()[0]
-        conn.close()
+        row_id = self._get_first_id()
         result = self.svc.get_comment(row_id)
         self.assertIsInstance(result, dict)
         self.assertEqual(result["id"], row_id)
@@ -37,45 +43,30 @@ class TestCommentService(unittest.TestCase):
         self.assertIsNone(result)
 
     def test_lock_sentiment_validates_positive(self):
-        import sqlite3
-        conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "db", "comments.db"))
-        row_id = conn.execute("SELECT id FROM comments LIMIT 1").fetchone()[0]
-        conn.close()
+        row_id = self._get_first_id()
         result = self.svc.lock_sentiment(row_id, "正面")
         self.assertIsNotNone(result)
         self.assertEqual(result["sentiment_fix"], "正面")
 
     def test_lock_sentiment_validates_negative(self):
-        import sqlite3
-        conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "db", "comments.db"))
-        row_id = conn.execute("SELECT id FROM comments LIMIT 1").fetchone()[0]
-        conn.close()
+        row_id = self._get_first_id()
         result = self.svc.lock_sentiment(row_id, "负面")
         self.assertIsNotNone(result)
         self.assertEqual(result["sentiment_fix"], "负面")
 
     def test_lock_sentiment_validates_neutral(self):
-        import sqlite3
-        conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "db", "comments.db"))
-        row_id = conn.execute("SELECT id FROM comments LIMIT 1").fetchone()[0]
-        conn.close()
+        row_id = self._get_first_id()
         result = self.svc.lock_sentiment(row_id, "中性")
         self.assertIsNotNone(result)
         self.assertEqual(result["sentiment_fix"], "中性")
 
     def test_lock_sentiment_rejects_invalid(self):
-        import sqlite3
-        conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "db", "comments.db"))
-        row_id = conn.execute("SELECT id FROM comments LIMIT 1").fetchone()[0]
-        conn.close()
+        row_id = self._get_first_id()
         with self.assertRaises(ValueError):
             self.svc.lock_sentiment(row_id, "positive")  # English not allowed
 
     def test_lock_sentiment_allows_null(self):
-        import sqlite3
-        conn = sqlite3.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "db", "comments.db"))
-        row_id = conn.execute("SELECT id FROM comments LIMIT 1").fetchone()[0]
-        conn.close()
+        row_id = self._get_first_id()
         result = self.svc.lock_sentiment(row_id, None)
         self.assertIsNone(result["sentiment_fix"])
 
