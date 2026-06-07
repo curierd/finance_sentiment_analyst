@@ -14,6 +14,9 @@
 
 ### 雪球
 - 使用`opencli xueqiu`命令行
+- 预设数据`data/xiaohongshu-finance-up.md`
+- 预设数据`data/sections/CPO.md`
+- 预设数据`data/sections/laodeng.md`
 
 ## 输出
 0.每个不同平台保存成不同的json结果文件,保存到comments文件夹下
