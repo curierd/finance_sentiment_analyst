@@ -77,6 +77,101 @@ def get_stats_timeline():
     return jsonify(get_service().get_stats_by_date(granularity))
 
 
+@comment_bp.route("/api/stats/timeline/image", methods=["GET"])
+def get_stats_timeline_image():
+    granularity = request.args.get("granularity", "day")
+    if granularity not in ("day", "week", "month"):
+        granularity = "day"
+    data = get_service().get_stats_by_date(granularity)
+
+    import subprocess, json, os, tempfile
+
+    chart_script = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                               ".claude", "skills", "chart-image", "scripts", "chart.mjs")
+    spec_base_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                             ".claude", "skills", "chart-image", "scripts", "donut_labeled_spec.json")
+    periods = sorted(data.keys())
+    if not periods:
+        return "No data", 404
+
+    total_pos = sum(data[p].get("positive", 0) for p in periods)
+    total_neu = sum(data[p].get("neutral", 0) for p in periods)
+    total_neg = sum(data[p].get("negative", 0) for p in periods)
+    if total_pos == 0 and total_neu == 0 and total_neg == 0:
+        return "No data", 404
+
+    gran_label = {"day": "日", "week": "周", "month": "月"}.get(granularity, granularity)
+    chart_data = [
+        {"category": "正面", "count": total_pos},
+        {"category": "中性", "count": total_neu},
+        {"category": "负面", "count": total_neg},
+    ]
+
+    # Build spec with data embedded
+    spec = {
+        "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+        "width": 520,
+        "height": 360,
+        "background": "#0f1117",
+        "padding": {"left": 10, "right": 10, "top": 10, "bottom": 10},
+        "title": {
+            "text": "情绪时间线（" + gran_label + "）",
+            "color": "#e0e3f0",
+            "fontSize": 16,
+            "fontWeight": "bold",
+            "anchor": "middle"
+        },
+        "data": {"values": chart_data},
+        "transform": [
+            {"joinaggregate": [{"op": "sum", "field": "count", "as": "total"}]},
+            {"calculate": "datum.count + ' (' + format(datum.count / datum.total, '.1%') + ')'", "as": "label"}
+        ],
+        "layer": [
+            {
+                "mark": {"type": "arc", "innerRadius": 72, "stroke": "#0f1117", "strokeWidth": 2},
+                "encoding": {
+                    "theta": {"field": "count", "type": "quantitative", "stack": True},
+                    "color": {
+                        "field": "category", "type": "nominal",
+                        "scale": {"domain": ["正面", "中性", "负面"], "range": ["#34d399", "#94a3b8", "#f87171"]},
+                        "legend": {"labelColor": "#e0e3f0", "titleColor": "#8890a8", "symbolStrokeColor": "#8890a8", "orient": "right"}
+                    },
+                    "order": {"field": "count", "type": "quantitative", "sort": "descending"}
+                }
+            },
+            {
+                "mark": {"type": "text", "radius": 108, "fontSize": 13, "fontWeight": "bold", "color": "#e0e3f0"},
+                "encoding": {
+                    "text": {"field": "label", "type": "nominal"},
+                    "theta": {"field": "count", "type": "quantitative", "stack": True},
+                    "color": {"value": "#e0e3f0"},
+                    "order": {"field": "count", "type": "quantitative", "sort": "descending"}
+                }
+            }
+        ],
+        "config": {"font": "Helvetica, Arial, sans-serif", "view": {"stroke": None}}
+    }
+
+    tmp_spec = os.path.join(tempfile.gettempdir(), "sentiment_spec.json")
+    tmp_path = os.path.join(tempfile.gettempdir(), "sentiment_timeline.png")
+    try:
+        with open(tmp_spec, "w", encoding="utf-8") as f:
+            json.dump(spec, f)
+        proc = subprocess.run([
+            "node", chart_script, "--spec", tmp_spec, "--output", tmp_path
+        ], capture_output=True, text=True, timeout=30)
+        if proc.returncode != 0:
+            return "Chart generation failed: " + proc.stderr, 500
+        from flask import send_file
+        return send_file(tmp_path, mimetype="image/png")
+    finally:
+        for p in (tmp_spec, tmp_path):
+            try:
+                os.remove(p)
+            except Exception:
+                pass
+
+
 @comment_bp.route("/api/up_masters", methods=["GET"])
 def get_up_masters():
     return jsonify(get_service().get_up_masters())

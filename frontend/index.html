@@ -143,6 +143,14 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
 .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .empty { text-align: center; padding: 60px; color: var(--text-dim); font-size: 14px; }
+
+.chart-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
+.chart-modal.open { display: flex; }
+.chart-modal-content { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; max-width: 90vw; max-height: 90vh; overflow: auto; position: relative; }
+.chart-modal-close { position: absolute; top: 10px; right: 14px; background: none; border: none; font-size: 20px; color: var(--text-dim); cursor: pointer; line-height: 1; }
+.chart-modal-close:hover { color: var(--text); }
+.chart-modal-img { display: block; max-width: 100%; border-radius: 6px; }
+.chart-modal-title { text-align: center; font-size: 14px; color: var(--text-dim); margin-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -233,8 +241,8 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
               <button data-g="week" onclick="setTimelineGranularity('week')">周</button>
               <button data-g="month" onclick="setTimelineGranularity('month')">月</button>
             </div>
-            <div id="timelineChart" style="min-height:80px;"></div>
-            <div id="timelineTooltip" class="timeline-tooltip"></div>
+            <div id="timelineChart" style="min-height:80px;cursor:pointer;" onclick="openChartModal()"></div>
+            <div style="font-size:10px;color:var(--text-dim);text-align:center;margin-top:4px;">点击查看大图</div>
             <div class="timeline-legend">
               <div class="timeline-legend-item"><div class="timeline-legend-dot" style="background:var(--pos)"></div><span>正面</span></div>
               <div class="timeline-legend-item"><div class="timeline-legend-dot" style="background:var(--neu)"></div><span>中性</span></div>
@@ -243,9 +251,17 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
           </div>
         </div>
       </div>
-      <div class="comments-grid" id="commentsGrid"></div>
+       <div class="comments-grid" id="commentsGrid"></div>
       <div class="pagination" id="pagination"></div>
     </main>
+  </div>
+</div>
+
+<div class="chart-modal" id="chartModal" onclick="if(event.target===this)closeChartModal()">
+  <div class="chart-modal-content">
+    <button class="chart-modal-close" onclick="closeChartModal()">&times;</button>
+    <div class="chart-modal-title" id="chartModalTitle">情绪时间线</div>
+    <img class="chart-modal-img" id="chartModalImg" src="" alt="情绪时间线">
   </div>
 </div>
 
@@ -291,77 +307,33 @@ function setTimelineGranularity(g) {
   loadTimeline();
 }
 
+var timelineImg = null;
 function loadTimeline() {
-  fetch(API + '/stats/timeline?granularity=' + timelineGranularity)
-    .then(function(res) { return res.json(); })
-    .then(function(data) { renderTimeline(data); });
-}
-
-function renderTimeline(data) {
   var container = document.getElementById('timelineChart');
-  var periods = [];
-  for (var p in data) { periods.push(p); }
-  periods.sort();
-  if (periods.length === 0) { container.innerHTML = '<div style="font-size:12px;color:var(--text-dim);text-align:center;padding:20px">暂无数据</div>'; return; }
-
-  // Limit to last 14 periods for readability
-  if (periods.length > 14) { periods = periods.slice(periods.length - 14); }
-
-  var maxTotal = 0;
-  for (var j = 0; j < periods.length; j++) {
-    var d = data[periods[j]];
-    if (d && d.total > maxTotal) maxTotal = d.total;
-  }
-  if (maxTotal === 0) maxTotal = 1;
-
-  var html = '';
-  for (var k = 0; k < periods.length; k++) {
-    var period = periods[k];
-    var d = data[period] || {total:0, positive:0, neutral:0, negative:0};
-    var total = d.total || 0;
-    var posH = total >0 ? (d.positive / total *100) : 0;
-    var neuH = total > 0 ? (d.neutral / total * 100) : 0;
-    var negH = total > 0 ? (d.negative / total * 100) : 0;
-    var barH = Math.max(2, Math.round((total / maxTotal) * 78));
-    var label = period;
-    if (timelineGranularity === 'day') label = period.substring(5); // MM-DD
-    if (timelineGranularity === 'month') label = period; // YYYY-MM
-    if (timelineGranularity === 'week') label = period;
-    html += '<div class="timeline-bar-wrap" style="height:78px;">' +
-      '<div class="timeline-bar" style="height:' + barH + 'px;" ' +
-        'onmouseover="showTimelineTooltip(event,\'' + period + '\',' + d.positive + ',' + d.neutral + ',' + d.negative + ',' + total + ')" ' +
-        'onmouseout="hideTimelineTooltip()">' +
-        '<div class="timeline-seg neg" style="height:' + negH + '%"></div>' +
-        '<div class="timeline-seg neu" style="height:' + neuH + '%"></div>' +
-        '<div class="timeline-seg pos" style="height:' + posH + '%"></div>' +
-      '</div>' +
-      '<div class="timeline-label">' + label + '</div>' +
-    '</div>';
-  }
-  container.innerHTML = html;
+  container.innerHTML = '<div id="timelineLoading" style="text-align:center;padding:20px;color:var(--text-dim);font-size:12px;">生成图表中...</div>';
+  var t = timelineImg || document.createElement('img');
+  t.id = 'timelineImg';
+  t.style.cssText = 'width:100%;border-radius:6px;display:block;cursor:pointer;';
+  t.alt = '点击查看大图';
+  t.title = '点击查看大图';
+  t.onload = function() { container.innerHTML = ''; container.appendChild(t); t.onclick = openChartModal; };
+  t.onerror = function() { container.innerHTML = '<div style="font-size:12px;color:var(--neg);text-align:center;padding:20px">图表加载失败</div>'; };
+  t.src = API + '/stats/timeline/image?granularity=' + timelineGranularity + '&_=' + Date.now();
+  timelineImg = t;
 }
 
-var timelineTooltipTimer = null;
-function showTimelineTooltip(e, period, pos, neu, neg, total) {
-  clearTimeout(timelineTooltipTimer);
-  var tooltip = document.getElementById('timelineTooltip');
-  tooltip.innerHTML = '<strong>' + period + '</strong><br>' +
-    '<span style="color:var(--pos)">正面 ' + pos + '</span> ' +
-    '<span style="color:var(--neu)">中性 ' + neu + '</span> ' +
-    '<span style="color:var(--neg)">负面 ' + neg + '</span><br>' +
-    '合计 ' + total + ' 条';
-  tooltip.style.display = 'block';
-  var rect = e.target.closest('.timeline-bar-wrap').getBoundingClientRect();
-  var panelRect = document.getElementById('statsPanel').getBoundingClientRect();
-  tooltip.style.left = (rect.left - panelRect.left) + 'px';
-  tooltip.style.bottom = '90px';
+function openChartModal() {
+  var modal = document.getElementById('chartModal');
+  var img = document.getElementById('chartModalImg');
+  var title = document.getElementById('chartModalTitle');
+  var granLabel = { day: '日', week: '周', month: '月' };
+  title.textContent = '情绪时间线（' + (granLabel[timelineGranularity] || timelineGranularity) + '）';
+  img.src = API + '/stats/timeline/image?granularity=' + timelineGranularity + '&_=' + Date.now();
+  modal.classList.add('open');
 }
 
-function hideTimelineTooltip() {
-  clearTimeout(timelineTooltipTimer);
-  timelineTooltipTimer = setTimeout(function() {
-    document.getElementById('timelineTooltip').style.display = 'none';
-  }, 200);
+function closeChartModal() {
+  document.getElementById('chartModal').classList.remove('open');
 }
 
 function loadStats() {
