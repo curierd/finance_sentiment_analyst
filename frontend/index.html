@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>金融评论情绪分析</title>
+<style>
+:root {
+  --bg: #0f1117;
+  --card-bg: #1a1d27;
+  --card-hover: #21253a;
+  --border: #2a2d3e;
+  --text: #e0e3f0;
+  --text-dim: #8890a8;
+  --pos: #34d399;
+  --neg: #f87171;
+  --neu: #94a3b8;
+  --pos-bg: rgba(52,211,153,0.12);
+  --neg-bg: rgba(248,113,113,0.12);
+  --neu-bg: rgba(148,163,184,0.12);
+  --bili: #00a1d6;
+  --xueqiu: #1aad19;
+  --xiaohongshu: #ff6b6b;
+  --accent: #6366f1;
+  --radius: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+header { background: var(--card-bg); border-bottom: 1px solid var(--border); padding: 0 20px; display: flex; align-items: center; gap: 16px; height: 56px; position: sticky; top: 0; z-index: 100; }
+header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
+.platform-tabs { display: flex; gap: 4px; }
+.platform-tabs button { background: none; border: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; color: var(--text-dim); cursor: pointer; transition: all 0.15s; }
+.platform-tabs button:hover { background: var(--border); color: var(--text); }
+.platform-tabs button.active { background: var(--accent); color: #fff; }
+.header-spacer { flex: 1; }
+.stats-bar { display: flex; gap: 14px; font-size: 12px; color: var(--text-dim); align-items: center; }
+
+.layout { display: flex; flex: 1; overflow: hidden; }
+.sidebar { width: 240px; background: var(--card-bg); border-right: 1px solid var(--border); padding: 16px; overflow-y: auto; flex-shrink: 0; }
+.sidebar h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); margin: 12px 0 8px; }
+.sidebar input { width: 100%; padding: 7px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px; outline: none; margin-bottom: 8px; }
+.sidebar input:focus { border-color: var(--accent); }
+
+.filter-btn { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: none; color: var(--text-dim); font-size: 13px; cursor: pointer; transition: all 0.15s; text-align: left; margin-bottom: 4px; }
+.filter-btn:hover { border-color: var(--accent); color: var(--text); }
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.filter-btn.active.pos { background: var(--pos-bg); border-color: var(--pos); color: var(--pos); }
+.filter-btn.active.neg { background: var(--neg-bg); border-color: var(--neg); color: var(--neg); }
+.filter-btn.active.neu { background: var(--neu-bg); border-color: var(--neu); color: var(--neu); }
+.filter-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.filter-dot.pos { background: var(--pos); }
+.filter-dot.neg { background: var(--neg); }
+.filter-dot.neu { background: var(--neu); }
+.filter-dot.all { background: var(--accent); }
+.filter-dot.gray { background: var(--text-dim); }
+
+.main { flex: 1; overflow-y: auto; padding: 16px; }
+.comments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+
+.card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; transition: all 0.15s; }
+.card:hover { border-color: var(--accent); background: var(--card-hover); }
+.card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.platform-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+.platform-badge.bilibili { background: rgba(0,161,214,0.2); color: var(--bili); }
+.platform-badge.xueqiu { background: rgba(26,173,25,0.2); color: var(--xueqiu); }
+.platform-badge.xiaohongshu { background: rgba(255,107,107,0.2); color: var(--xiaohongshu); }
+.card-author { font-size: 12px; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-likes { font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+.card-likes svg { width: 12px; height: 12px; fill: var(--text-dim); }
+.card-content { font-size: 14px; line-height: 1.6; color: var(--text); margin: 8px 0; word-break: break-word; }
+.card-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; }
+.card-meta span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sentiment-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sentiment-badge { display: flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.sentiment-badge.pos { background: var(--pos-bg); color: var(--pos); }
+.sentiment-badge.neg { background: var(--neg-bg); color: var(--neg); }
+.sentiment-badge.neu { background: var(--neu-bg); color: var(--neu); }
+.locked-badge { display: flex; align-items: center; gap: 3px; font-size: 11px; padding: 2px 6px; border-radius: 4px; background: var(--accent); color: #fff; }
+.locked-badge svg { width: 10px; height: 10px; fill: #fff; }
+
+.sentiment-selector { display: flex; gap: 4px; margin-left: auto; }
+.sentiment-selector button { padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: none; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+.sentiment-selector button.pos:hover, .sentiment-selector button.pos.selected { background: var(--pos-bg); border-color: var(--pos); color: var(--pos); }
+.sentiment-selector button.neg:hover, .sentiment-selector button.neg.selected { background: var(--neg-bg); border-color: var(--neg); color: var(--neg); }
+.sentiment-selector button.neu:hover, .sentiment-selector button.neu.selected { background: var(--neu-bg); border-color: var(--neu); color: var(--neu); }
+.unlock-btn { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: none; font-size: 11px; color: var(--text-dim); cursor: pointer; margin-left: 4px; }
+.unlock-btn:hover { color: var(--text); border-color: var(--accent); }
+
+.pagination { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 20px; padding-bottom: 20px; }
+.pagination button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--card-bg); color: var(--text); cursor: pointer; font-size: 13px; }
+.pagination button:hover:not(:disabled) { border-color: var(--accent); }
+.pagination button:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-info { font-size: 13px; color: var(--text-dim); }
+
+.stats-panel { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; display: none; }
+.stats-panel.visible { display: block; }
+.stats-panel h3 { font-size: 13px; color: var(--text); margin-bottom: 12px; font-weight: 600; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.stats-section { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.stats-section h4 { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+.stat-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 6px; }
+.stat-row:last-child { margin-bottom: 0; }
+.stat-label { display: flex; align-items: center; gap: 6px; color: var(--text-dim); }
+.stat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.stat-value { font-weight: 600; }
+.bar-track { height: 6px; background: var(--border); border-radius: 3px; margin-top: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.bar-fill.pos { background: var(--pos); }
+.bar-fill.neg { background: var(--neg); }
+.bar-fill.neu { background: var(--neu); }
+.percent-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+.weighted-section { margin-top: 12px; }
+.weighted-bar { height: 24px; display: flex; border-radius: 6px; overflow: hidden; margin-top: 6px; }
+.weighted-segment { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #fff; transition: width 0.4s ease; }
+.platform-breakdown { display: flex; flex-direction: column; gap: 8px; }
+.platform-stat { display: flex; align-items: center; gap: 8px; }
+.platform-stat-name { font-size: 12px; width: 50px; flex-shrink: 0; }
+.platform-stat-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+.platform-stat-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+.platform-stat-count { font-size: 12px; color: var(--text-dim); width: 40px; text-align: right; }
+
+.loading { text-align: center; padding: 40px; color: var(--text-dim); }
+.spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty { text-align: center; padding: 60px; color: var(--text-dim); font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>金融评论情绪分析</h1>
+    <div class="platform-tabs">
+      <button class="active" data-platform="">全部</button>
+      <button data-platform="bilibili">B站</button>
+      <button data-platform="xueqiu">雪球</button>
+      <button data-platform="xiaohongshu">小红书</button>
+    </div>
+    <div class="header-spacer"></div>
+    <button id="statsToggle" onclick="toggleStatsPanel()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text-dim);cursor:pointer;">📊 统计</button>
+    <div class="stats-bar" id="statsBar"><span>加载中...</span></div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h3>来源</h3>
+      <button class="filter-btn active" data-locked="" onclick="setLockedFilter('')">
+        <span class="filter-dot all"></span> 全部
+      </button>
+      <button class="filter-btn" data-locked="0" onclick="setLockedFilter('0')">
+        <span class="filter-dot gray"></span> 自动分析
+      </button>
+      <button class="filter-btn" data-locked="1" onclick="setLockedFilter('1')">
+        <span class="filter-dot all"></span> 已锁定
+      </button>
+
+      <h3>搜索</h3>
+      <input type="text" id="authorFilter" placeholder="作者 / UP主" oninput="debounceLoad()">
+      <input type="text" id="videoFilter" placeholder="视频 / 帖子标题" oninput="debounceLoad()">
+
+      <h3>情绪</h3>
+      <button class="filter-btn active all" data-sentiment="" onclick="setSentimentFilter('')">
+        <span class="filter-dot all"></span> 全部
+      </button>
+      <button class="filter-btn" data-sentiment="正面" onclick="setSentimentFilter('正面')">
+        <span class="filter-dot pos"></span> 正面
+      </button>
+      <button class="filter-btn" data-sentiment="中性" onclick="setSentimentFilter('中性')">
+        <span class="filter-dot neu"></span> 中性
+      </button>
+      <button class="filter-btn" data-sentiment="负面" onclick="setSentimentFilter('负面')">
+        <span class="filter-dot neg"></span> 负面
+      </button>
+
+      <h3>点赞数 &gt;</h3>
+      <input type="number" id="likesFilter" placeholder="0" min="0" oninput="debounceLoad()">
+    </aside>
+
+    <main class="main">
+      <div class="stats-panel" id="statsPanel">
+        <h3>📊 情绪统计详情</h3>
+        <div class="stats-grid">
+          <div class="stats-section">
+            <h4>情绪分布（全部）</h4>
+            <div class="stat-row"><span class="stat-label"><span class="stat-dot" style="background:var(--pos)"></span>正面</span><span class="stat-value" style="color:var(--pos)" id="statPos">-</span></div>
+            <div class="stat-row"><span class="stat-label"><span class="stat-dot" style="background:var(--neu)"></span>中性</span><span class="stat-value" style="color:var(--neu)" id="statNeu">-</span></div>
+            <div class="stat-row"><span class="stat-label"><span class="stat-dot" style="background:var(--neg)"></span>负面</span><span class="stat-value" style="color:var(--neg)" id="statNeg">-</span></div>
+           <div class="bar-track"><div class="bar-fill pos" id="statPosBar" style="width:0%"></div></div>
+            <div class="bar-track"><div class="bar-fill neu" id="statNeuBar" style="width:0%"></div></div>
+            <div class="bar-track"><div class="bar-fill neg" id="statNegBar" style="width:0%"></div></div>
+           <div class="percent-row"><span>占比</span><span id="statTotalCnt"></span></div>
+          </div>
+          <div class="stats-section">
+            <h4>点赞加权情绪</h4>
+            <div class="weighted-bar" id="weightedBar">
+              <div class="weighted-segment" id="weightedPos" style="width:0%;background:var(--pos)">0%</div>
+              <div class="weighted-segment" id="weightedNeu" style="width:0%;background:var(--neu)">0%</div>
+              <div class="weighted-segment" id="weightedNeg" style="width:0%;background:var(--neg)">0%</div>
+            </div>
+            <div class="weighted-section">
+              <div class="stat-row"><span class="stat-label"><span class="stat-dot" style="background:var(--pos)"></span>正面加权</span><span class="stat-value" style="color:var(--pos)" id="weightedPosVal">-</span></div>
+              <div class="stat-row"><span class="stat-label"><span class="stat-dot" style="background:var(--neu)"></span>中性加权</span><span class="stat-value" style="color:var(--neu)" id="weightedNeuVal">-</span></div>
+              <div class="stat-row"><span class="stat-label"><span class="stat-dot" style="background:var(--neg)"></span>负面加权</span><span class="stat-value" style="color:var(--neg)" id="weightedNegVal">-</span></div>
+            </div>
+          </div>
+          <div class="stats-section">
+            <h4>平台分布</h4>
+            <div class="platform-breakdown" id="platformBreakdown"></div>
+          </div>
+        </div>
+      </div>
+      <div class="comments-grid" id="commentsGrid"></div>
+      <div class="pagination" id="pagination"></div>
+    </main>
+  </div>
+</div>
+
+<script>
+var API = '/api';
+var state = {
+  platform: '',
+  sentiment: '',
+  locked: '',
+  author: '',
+  video: '',
+  page: 1,
+  pageSize: 50,
+  total: 0,
+  pages: 0
+};
+
+var statsPanelVisible = false;
+function toggleStatsPanel() {
+  statsPanelVisible = !statsPanelVisible;
+  var panel = document.getElementById('statsPanel');
+  var btn = document.getElementById('statsToggle');
+  if (statsPanelVisible) {
+    panel.classList.add('visible');
+    btn.style.borderColor = 'var(--accent)';
+    btn.style.color = 'var(--text)';
+    loadStatsPanel();
+  } else {
+    panel.classList.remove('visible');
+    btn.style.borderColor = 'var(--border)';
+    btn.style.color = 'var(--text-dim)';
+  }
+}
+
+function loadStats() {
+  fetch(API + '/stats').then(function(res) { return res.json(); }).then(function(data) {
+    var auto = data.auto || {};
+    var locked = data.locked || {};
+    var ac = data.auto_count || 0;
+    var lc = data.locked_count || 0;
+    var total = ac + lc;
+    document.getElementById('statsBar').innerHTML =
+      '<span style="color:var(--pos)">正面 ' + ((auto['正面']||0)+(locked['正面']||0)) + '</span>' +
+      '<span style="color:var(--neu)">中性 ' + ((auto['中性']||0)+(locked['中性']||0)) + '</span>' +
+      '<span style="color:var(--neg)">负面 ' + ((auto['负面']||0)+(locked['负面']||0)) + '</span>' +
+      '<span>|</span>' +
+      '<span>自动 ' + ac + ' 条</span>' +
+      '<span style="color:var(--accent)">锁定 ' + lc + ' 条</span>' +
+      '<span>|</span><span>共 ' + total + ' 条</span>';
+  });
+}
+
+function loadStatsPanel() {
+  fetch(API + '/stats').then(function(res) { return res.json(); }).then(function(data) {
+    var auto = data.auto || {};
+    var locked = data.locked || {};
+    var ac = data.auto_count || 0;
+    var lc = data.locked_count || 0;
+    var total = ac + lc;
+    var posTotal = (auto['正面']||0)+(locked['正面']||0);
+    var neuTotal = (auto['中性']||0)+(locked['中性']||0);
+    var negTotal = (auto['负面']||0)+(locked['负面']||0);
+    document.getElementById('statPos').textContent = posTotal + ' 条';
+    document.getElementById('statNeu').textContent = neuTotal + ' 条';
+    document.getElementById('statNeg').textContent = negTotal + ' 条';
+    document.getElementById('statTotalCnt').textContent = total + ' 条';
+    if (total > 0) {
+      document.getElementById('statPosBar').style.width = (posTotal/total*100).toFixed(1) + '%';
+      document.getElementById('statNeuBar').style.width = (neuTotal/total*100).toFixed(1) + '%';
+      document.getElementById('statNegBar').style.width = (negTotal/total*100).toFixed(1) + '%';
+    }
+    var lw = data.like_weighted || {};
+    var wp = lw['正面'] || 0;
+    var wn = lw['负面'] || 0;
+    var wne = lw['中性'] || 0;
+    document.getElementById('weightedPos').style.width = wp + '%';
+    document.getElementById('weightedPos').textContent = wp > 5 ? wp + '%' : '';
+    document.getElementById('weightedNeu').style.width = wne + '%';
+    document.getElementById('weightedNeu').textContent = wne > 5 ? wne + '%' : '';
+    document.getElementById('weightedNeg').style.width = wn + '%';
+    document.getElementById('weightedNeg').textContent = wn > 5 ? wn + '%' : '';
+    document.getElementById('weightedPosVal').textContent = wp + '%';
+    document.getElementById('weightedNeuVal').textContent = wne + '%';
+    document.getElementById('weightedNegVal').textContent = wn + '%';
+  });
+  loadPlatformStats();
+}
+
+function loadPlatformStats() {
+  var params = 'page=1&page_size=1';
+  var platforms = ['bilibili', 'xueqiu', 'xiaohongshu'];
+  var container = document.getElementById('platformBreakdown');
+  var html = '';
+  var completed = 0;
+  platforms.forEach(function(p) {
+    fetch(API + '/comments?platform=' + encodeURIComponent(p) + '&page=1&page_size=1').then(function(res) { return res.json(); }).then(function(data) {
+      completed++;
+      var name = {bilibili:'B站', xueqiu:'雪球', xiaohongshu:'小红书'}[p];
+      var color = {bilibili:'var(--bili)', xueqiu:'var(--xueqiu)', xiaohongshu:'var(--xiaohongshu)'}[p];
+      var total = data.total || 0;
+      html += '<div class="platform-stat">' +
+        '<span class="platform-stat-name" style="color:' + color + '">' + name + '</span>' +
+        '<div class="platform-stat-bar"><div class="platform-stat-fill" style="background:' + color + ';width:0%" id="pfFill_' + p + '"></div></div>' +
+        '<span class="platform-stat-count">' + total + '</span>' +
+        '</div>';
+      if (completed === platforms.length) {
+        container.innerHTML = html;
+        fetch(API + '/stats').then(function(res) { return res.json(); }).then(function(stData) {
+          var auto = stData.auto || {};
+          var locked = stData.locked || {};
+          var grandTotal = (stData.auto_count||0) + (stData.locked_count||0);
+          platforms.forEach(function(p2) {
+            fetch(API + '/comments?platform=' + encodeURIComponent(p2) + '&page=1&page_size=1').then(function(res) { return res.json(); }).then(function(d) {
+              var t = d.total || 0;
+              var fill = document.getElementById('pfFill_' + p2);
+              if (fill && grandTotal > 0) fill.style.width = (t/grandTotal*100).toFixed(1) + '%';
+            });
+          });
+        });
+      }
+    });
+  });
+}
+
+function loadComments() {
+  var grid = document.getElementById('commentsGrid');
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div>加载中...</div>';
+  var params = 'page=' + state.page + '&page_size=' + state.pageSize +
+    '&platform=' + encodeURIComponent(state.platform) +
+    '&sentiment=' + encodeURIComponent(state.sentiment) +
+    '&locked=' + encodeURIComponent(state.locked) +
+    '&author=' + encodeURIComponent(state.author) +
+    '&video_title=' + encodeURIComponent(state.video);
+  fetch(API + '/comments?' + params).then(function(res) { return res.json(); }).then(function(data) {
+    state.total = data.total;
+    state.pages = data.pages;
+    if (data.items.length === 0) {
+      grid.innerHTML = '<div class="empty">没有找到符合条件的评论</div>';
+      renderPagination();
+      return;
+    }
+    var html = '';
+    for (var i = 0; i < data.items.length; i++) {
+      html += renderCard(data.items[i]);
+    }
+    grid.innerHTML = html;
+    renderPagination();
+  });
+}
+
+function renderCard(item) {
+  var sentiment = item.sentiment || '中性';
+  var isFixed = !!item.sentiment_fix;
+  var displaySentiment = isFixed ? item.sentiment_fix : sentiment;
+  var posClass = displaySentiment === '正面' ? 'pos' : displaySentiment === '负面' ? 'neg' : 'neu';
+  var videoInfo = item.video_title || item.symbol ? '<span>' + esc(item.video_title || item.symbol) + '</span>' : '';
+  var upInfo = item.up_name ? '<span>UP: ' + esc(item.up_name) + '</span>' : '';
+  var authorInfo = item.author_name ? '<span>' + esc(item.author_name) + '</span>' : '';
+  var lockSvg = '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2z"/></svg>';
+  var unlockBtn = isFixed ? '<button class="unlock-btn" onclick="clearFix(' + item.id + ')">解除</button>' : '';
+  return '<div class="card">' +
+    '<div class="card-header">' +
+      '<span class="platform-badge ' + item.platform + '">' + platformName(item.platform) + '</span>' +
+      '<span class="card-author">' + esc(item.author_name || '-') + '</span>' +
+      '<span class="card-likes"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.093.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>' + (item.likes || 0) + '</span>' +
+    '</div>' +
+    '<div class="card-content">' + esc(item.content || '') + '</div>' +
+    '<div class="card-meta">' + videoInfo + upInfo + authorInfo + '</div>' +
+    '<div class="sentiment-row">' +
+      '<div class="sentiment-badge ' + posClass + '">' + (isFixed ? lockSvg : '') + displaySentiment + '</div>' +
+      '<div class="sentiment-selector">' +
+        '<button class="pos ' + (displaySentiment==='正面'?'selected':'') + '" onclick="setSentiment(' + item.id + ',\'正面\')">正面</button>' +
+        '<button class="neu ' + (displaySentiment==='中性'?'selected':'') + '" onclick="setSentiment(' + item.id + ',\'中性\')">中性</button>' +
+        '<button class="neg ' + (displaySentiment==='负面'?'selected':'') + '" onclick="setSentiment(' + item.id + ',\'负面\')">负面</button>' +
+        unlockBtn +
+      '</div>' +
+    '</div></div>';
+}
+
+function renderPagination() {
+  var el = document.getElementById('pagination');
+  if (state.pages <= 1) { el.innerHTML = ''; return; }
+  var prev = state.page > 1 ? '<button onclick="goPage(' + (state.page - 1) + ')">上一页</button>' : '<button disabled>上一页</button>';
+  var next = state.page < state.pages ? '<button onclick="goPage(' + (state.page + 1) + ')">下一页</button>' : '<button disabled>下一页</button>';
+  el.innerHTML = prev + '<span class="page-info">第 ' + state.page + ' / ' + state.pages + ' 页，共 ' + state.total + ' 条</span>' + next;
+}
+
+function setSentiment(id, sentiment) {
+  fetch(API + '/comments/' + id, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({sentiment_fix: sentiment}) })
+    .then(function() { loadComments(); loadStats(); });
+}
+
+function clearFix(id) {
+  fetch(API + '/comments/' + id, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({sentiment_fix: null}) })
+    .then(function() { loadComments(); loadStats(); });
+}
+
+function setSentimentFilter(val) {
+  state.sentiment = val;
+  state.page = 1;
+  var btns = document.querySelectorAll('[data-sentiment]');
+  for (var i = 0; i < btns.length; i++) {
+    var b = btns[i];
+    b.classList.remove('active', 'all', 'pos', 'neg', 'neu');
+    if (b.dataset.sentiment === val) b.classList.add('active');
+    if (val === '' && b.dataset.sentiment === '') b.classList.add('active', 'all');
+    if (b.dataset.sentiment === '正面') b.classList.add('pos');
+    if (b.dataset.sentiment === '负面') b.classList.add('neg');
+    if (b.dataset.sentiment === '中性') b.classList.add('neu');
+  }
+  loadComments();
+}
+
+function setLockedFilter(val) {
+  state.locked = val;
+  state.page = 1;
+  var btns = document.querySelectorAll('[data-locked]');
+  for (var i = 0; i < btns.length; i++) {
+    btns[i].classList.remove('active');
+    if (btns[i].dataset.locked === val) btns[i].classList.add('active');
+    if (val === '' && btns[i].dataset.locked === '') btns[i].classList.add('active');
+  }
+  loadComments();
+}
+
+function goPage(p) {
+  state.page = p;
+  loadComments();
+  document.querySelector('.main').scrollTop = 0;
+}
+
+document.querySelectorAll('.platform-tabs button').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.platform-tabs button').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    state.platform = btn.dataset.platform;
+    state.page = 1;
+    loadComments();
+  });
+});
+
+document.getElementById('authorFilter').addEventListener('input', function(e) { state.author = e.target.value; debounceLoad(); });
+document.getElementById('videoFilter').addEventListener('input', function(e) { state.video = e.target.value; debounceLoad(); });
+document.getElementById('likesFilter').addEventListener('input', function(e) { state.likes = parseInt(e.target.value) || 0; debounceLoad(); });
+
+function platformName(p) { return {bilibili:'B站', xueqiu:'雪球', xiaohongshu:'小红书'}[p] || p; }
+function esc(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+loadStats();
+loadComments();
+</script>
+</body>
+</html>
