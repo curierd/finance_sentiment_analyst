@@ -46,6 +46,8 @@ def create_comment():
 @comment_bp.route("/api/comments/<int:comment_id>", methods=["PATCH"])
 def update_comment(comment_id):
     data = request.get_json()
+    if "created_at" in data:
+        return jsonify({"error": "created_at cannot be modified"}), 400
     sentiment_fix = data.get("sentiment_fix")
     try:
         return jsonify(get_service().lock_sentiment(comment_id, sentiment_fix))

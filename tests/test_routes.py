@@ -75,6 +75,13 @@ class TestRoutes(unittest.TestCase):
         self.assertIsNotNone(data)
         self.assertEqual(data["sentiment_fix"], "负面")
 
+    def test_patch_comment_rejects_created_at(self):
+        resp = self.client.patch("/api/comments/" + str(self.test_id),
+            json={"sentiment_fix": "正面", "created_at": "2026-01-01"},
+            content_type="application/json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn("created_at", resp.get_json().get("error", ""))
+
     def test_patch_comment_unlock(self):
         self.client.patch("/api/comments/" + str(self.test_id),
             json={"sentiment_fix": None},
