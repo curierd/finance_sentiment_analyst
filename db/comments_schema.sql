@@ -51,6 +51,9 @@ CREATE TABLE IF NOT EXISTS comments (
     sentiment TEXT CHECK(sentiment IN ('正面', '负面', '中性')),
     sentiment_score REAL,
 
+    -- Manually fixed sentiment — once set, update_sentiment.py skips this row
+    sentiment_fix TEXT CHECK(sentiment_fix IN ('正面', '负面', '中性')),
+
     -- Metadata
     raw_data TEXT            -- JSON blob of original platform data for audit
 );

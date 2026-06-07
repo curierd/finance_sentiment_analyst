@@ -19,15 +19,18 @@ def main():
     conn = sqlite3.connect(DB_PATH)
 
     # Process in batches to show progress
-    cur = conn.execute("SELECT COUNT(*) FROM comments WHERE sentiment IS NULL")
+    # Skip rows where sentiment_fix IS NOT NULL — those are manually locked
+    cur = conn.execute(
+        "SELECT COUNT(*) FROM comments WHERE sentiment IS NULL AND sentiment_fix IS NULL"
+    )
     total = cur.fetchone()[0]
-    print("Analyzing %d comments..." % total)
+    print("Analyzing %d comments (skipping %d locked)..." % (total, 0))
 
     offset = 0
     updated = 0
     while True:
         rows = conn.execute(
-            "SELECT id, content FROM comments WHERE sentiment IS NULL LIMIT ?",
+            "SELECT id, content FROM comments WHERE sentiment IS NULL AND sentiment_fix IS NULL LIMIT ?",
             (BATCH,)
         ).fetchall()
         if not rows:
@@ -36,7 +39,7 @@ def main():
         for row_id, content in rows:
             if not content or not content.strip():
                 conn.execute(
-                    "UPDATE comments SET sentiment='neutral', sentiment_score=0.0 WHERE id=?",
+                    "UPDATE comments SET sentiment='中性', sentiment_score=0.0 WHERE id=?",
                     (row_id,)
                 )
             else:
@@ -54,8 +57,10 @@ def main():
 
     conn.commit()
 
-    # Summary
-    cur = conn.execute("SELECT sentiment, COUNT(*) FROM comments GROUP BY sentiment")
+    # Summary — use COALESCE to show effective sentiment
+    cur = conn.execute(
+        "SELECT COALESCE(sentiment_fix, sentiment) as s, COUNT(*) FROM comments GROUP BY s"
+    )
     print("\nSentiment distribution:")
     for label, cnt in cur.fetchall():
         print("  %s: %d" % (label, cnt))
