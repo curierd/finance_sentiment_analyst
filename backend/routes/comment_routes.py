@@ -21,6 +21,8 @@ def get_comments():
         "sentiment": request.args.get("sentiment"),
         "author": request.args.get("author"),
         "locked": request.args.get("locked"),
+        "date_from": request.args.get("date_from"),
+        "date_to": request.args.get("date_to"),
         "page": int(request.args.get("page", 1)),
         "page_size": int(request.args.get("page_size", 50)),
     }

@@ -168,6 +168,38 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
 
 .card-delete { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 3px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-left: 6px; }
 .card-delete:hover { color: var(--neg); border-color: var(--neg); }
+
+.datepicker-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 1200; }
+.datepicker-modal.open { display: flex; }
+.datepicker-modal-content { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 0; max-width: 640px; width: 94vw; overflow: hidden; }
+.datepicker-header { font-size: 14px; font-weight: 600; color: var(--text); padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.datepicker-cols { display: flex; gap: 0; }
+.datepicker-col { flex: 1; padding: 12px; border-right: 1px solid var(--border); }
+.datepicker-col:last-child { border-right: none; }
+.datepicker-col-label { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 8px; text-align: center; }
+.datepicker-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.datepicker-nav-btn { background: none; border: 1px solid var(--border); border-radius: 4px; color: var(--text-dim); cursor: pointer; padding: 2px 8px; font-size: 13px; transition: all 0.15s; }
+.datepicker-nav-btn:hover { border-color: var(--accent); color: var(--text); }
+.datepicker-nav-month { font-size: 13px; font-weight: 600; color: var(--text); }
+.datepicker-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 11px; color: var(--text-dim); margin-bottom: 2px; }
+.datepicker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px; }
+.datepicker-day { background: none; border: none; border-radius: 4px; padding: 4px 0; font-size: 12px; color: var(--text); cursor: pointer; text-align: center; transition: all 0.1s; }
+.datepicker-day:hover { background: var(--border); }
+.datepicker-day.other { color: var(--text-dim); opacity: 0.4; }
+.datepicker-day.selected { background: var(--accent); color: #fff; font-weight: 600; }
+.datepicker-day.today { outline: 1px solid var(--accent); outline-offset: -1px; }
+.datepicker-time { display: flex; align-items: center; gap: 4px; margin-top: 8px; justify-content: center; }
+.datepicker-time select { padding: 4px 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 13px; outline: none; cursor: pointer; }
+.datepicker-time select:focus { border-color: var(--accent); }
+.datepicker-time-sep { color: var(--text-dim); font-size: 13px; }
+.datepicker-actions { display: flex; gap: 6px; justify-content: flex-end; padding: 10px 16px 14px; border-top: 1px solid var(--border); }
+.datepicker-btn { padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+.datepicker-btn-clear { background: none; border: 1px solid var(--border); color: var(--text-dim); }
+.datepicker-btn-clear:hover { border-color: var(--neg); color: var(--neg); }
+.datepicker-btn-cancel { background: none; border: 1px solid var(--border); color: var(--text-dim); }
+.datepicker-btn-cancel:hover { border-color: var(--accent); color: var(--text); }
+.datepicker-btn-ok { background: var(--accent); border: 1px solid var(--accent); color: #fff; }
+.datepicker-btn-ok:hover { opacity: 0.85; }
 </style>
 </head>
 <body>
@@ -218,6 +250,11 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
 
       <h3>点赞数 &gt;</h3>
       <input type="number" id="likesFilter" placeholder="0" min="0">
+
+      <h3>时间范围</h3>
+      <button class="filter-btn" id="dateRangeBtn" onclick="openDatePicker()">
+        <span class="filter-dot all"></span> <span id="dateRangeLabel">全部时间</span>
+      </button>
     </aside>
 
     <main class="main">
@@ -282,6 +319,49 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
   </div>
 </div>
 
+<div class="datepicker-modal" id="datepickerModal" onclick="if(event.target===this)closeDatePicker()">
+  <div class="datepicker-modal-content">
+    <div class="datepicker-header">选择时间范围</div>
+    <div class="datepicker-cols">
+      <div class="datepicker-col">
+        <div class="datepicker-col-label">开始</div>
+        <div class="datepicker-nav">
+          <button class="datepicker-nav-btn" onclick="dpNav(-1,'start')">&lt;</button>
+          <span class="datepicker-nav-month" id="dpStartLabel"></span>
+          <button class="datepicker-nav-btn" onclick="dpNav(1,'start')">&gt;</button>
+        </div>
+        <div class="datepicker-weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div class="datepicker-grid" id="dpStartGrid"></div>
+        <div class="datepicker-time">
+          <select id="dpStartHour"></select>
+          <span class="datepicker-time-sep">:</span>
+          <select id="dpStartMin"></select>
+        </div>
+      </div>
+      <div class="datepicker-col">
+        <div class="datepicker-col-label">结束</div>
+        <div class="datepicker-nav">
+          <button class="datepicker-nav-btn" onclick="dpNav(-1,'end')">&lt;</button>
+          <span class="datepicker-nav-month" id="dpEndLabel"></span>
+          <button class="datepicker-nav-btn" onclick="dpNav(1,'end')">&gt;</button>
+        </div>
+        <div class="datepicker-weekdays"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>
+        <div class="datepicker-grid" id="dpEndGrid"></div>
+        <div class="datepicker-time">
+          <select id="dpEndHour"></select>
+          <span class="datepicker-time-sep">:</span>
+          <select id="dpEndMin"></select>
+        </div>
+      </div>
+    </div>
+    <div class="datepicker-actions">
+      <button class="datepicker-btn datepicker-btn-clear" onclick="clearDateRange()">清除</button>
+      <button class="datepicker-btn datepicker-btn-cancel" onclick="closeDatePicker()">取消</button>
+      <button class="datepicker-btn datepicker-btn-ok" onclick="confirmDateRange()">确定</button>
+    </div>
+  </div>
+</div>
+
 <div class="confirm-modal" id="confirmModal" onclick="if(event.target===this)closeConfirmModal()">
   <div class="confirm-modal-content">
     <div class="confirm-modal-title" id="confirmModalTitle">确认删除</div>
@@ -304,7 +384,9 @@ var state = {
   page: 1,
   pageSize: 50,
   total: 0,
-  pages: 0
+  pages: 0,
+  dateFrom: '',
+  dateTo: ''
 };
 
 var statsPanelVisible = false;
@@ -463,7 +545,9 @@ function loadComments() {
     '&sentiment=' + encodeURIComponent(state.sentiment) +
     '&locked=' + encodeURIComponent(state.locked) +
     '&author=' + encodeURIComponent(state.author) +
-    '&video_title=' + encodeURIComponent(state.video);
+    '&video_title=' + encodeURIComponent(state.video) +
+    '&date_from=' + encodeURIComponent(state.dateFrom) +
+    '&date_to=' + encodeURIComponent(state.dateTo);
   fetch(API + '/comments?' + params).then(function(res) { return res.json(); }).then(function(data) {
     state.total = data.total;
     state.pages = data.pages;
@@ -638,6 +722,184 @@ document.querySelectorAll('.platform-tabs button').forEach(function(btn) {
 document.getElementById('authorFilter').addEventListener('input', function(e) { state.author = e.target.value; debounceLoad(); });
 document.getElementById('videoFilter').addEventListener('input', function(e) { state.video = e.target.value; debounceLoad(); });
 document.getElementById('likesFilter').addEventListener('input', function(e) { state.likes = parseInt(e.target.value) || 0; debounceLoad(); });
+// ── Date picker (calendar + clock) ──
+var dpState = { startY: 0, startM: 0, endY: 0, endM: 0 };
+
+function dpPopulateSelects() {
+  function opts(from, to) {
+    var h = '';
+    for (var i = from; i <= to; i++) {
+      var v = i < 10 ? '0' + i : '' + i;
+      h += '<option value="' + v + '">' + v + '</option>';
+    }
+    return h;
+  }
+  document.getElementById('dpStartHour').innerHTML = opts(0, 23);
+  document.getElementById('dpStartMin').innerHTML = opts(0, 59);
+  document.getElementById('dpEndHour').innerHTML = opts(0, 23);
+  document.getElementById('dpEndMin').innerHTML = opts(0, 59);
+}
+
+function dpParseISO(s) {
+  if (!s) return null;
+  var d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function dpToISO(d) {
+  if (!d) return '';
+  var y = d.getFullYear();
+  var M = d.getMonth() + 1;
+  var day = d.getDate();
+  var h = d.getHours();
+  var m = d.getMinutes();
+  return y + '-' + (M < 10 ? '0' : '') + M + '-' + (day < 10 ? '0' : '') + day +
+    'T' + (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+}
+
+function dpRender(side) {
+  var isStart = side === 'start';
+  var y = isStart ? dpState.startY : dpState.endY;
+  var m = isStart ? dpState.startM : dpState.endM;
+  var gridId = isStart ? 'dpStartGrid' : 'dpEndGrid';
+  var labelId = isStart ? 'dpStartLabel' : 'dpEndLabel';
+  var sel = isStart ? dpState.startD : dpState.endD;
+
+  document.getElementById(labelId).textContent = y + '年' + (m + 1) + '月';
+
+  var first = new Date(y, m, 1).getDay();
+  var daysInMonth = new Date(y, m + 1, 0).getDate();
+  var daysInPrev = new Date(y, m, 0).getDate();
+  var html = '';
+  var totalCells = Math.ceil((first + daysInMonth) / 7) * 7;
+
+  for (var i = 0; i < totalCells; i++) {
+    var dayNum, cls = 'datepicker-day';
+    if (i < first) {
+      dayNum = daysInPrev - first + i + 1;
+      cls += ' other';
+    } else if (i >= first + daysInMonth) {
+      dayNum = i - first - daysInMonth + 1;
+      cls += ' other';
+    } else {
+      dayNum = i - first + 1;
+      var thisDate = new Date(y, m, dayNum);
+      // Today highlight
+      var today = new Date();
+      if (dayNum === today.getDate() && m === today.getMonth() && y === today.getFullYear()) {
+        cls += ' today';
+      }
+      // Selected highlight
+      if (sel && dayNum === sel.getDate() && m === sel.getMonth() && y === sel.getFullYear()) {
+        cls += ' selected';
+      }
+    }
+    html += '<button class="' + cls + '" onclick="dpPickDay(' + dayNum + ',\'' + side + '\')">' + dayNum + '</button>';
+  }
+  document.getElementById(gridId).innerHTML = html;
+}
+
+function dpNav(dir, side) {
+  if (side === 'start') {
+    dpState.startM += dir;
+    if (dpState.startM > 11) { dpState.startM = 0; dpState.startY++; }
+    if (dpState.startM < 0) { dpState.startM = 11; dpState.startY--; }
+    dpRender('start');
+  } else {
+    dpState.endM += dir;
+    if (dpState.endM > 11) { dpState.endM = 0; dpState.endY++; }
+    if (dpState.endM < 0) { dpState.endM = 11; dpState.endY--; }
+    dpRender('end');
+  }
+}
+
+function dpPickDay(day, side) {
+  var isStart = side === 'start';
+  var y = isStart ? dpState.startY : dpState.endY;
+  var m = isStart ? dpState.startM : dpState.endM;
+  var d = new Date(y, m, day,
+    parseInt(document.getElementById(isStart ? 'dpStartHour' : 'dpEndHour').value),
+    parseInt(document.getElementById(isStart ? 'dpStartMin' : 'dpEndMin').value));
+  if (isStart) dpState.startD = d; else dpState.endD = d;
+  dpRender(side);
+}
+
+function openDatePicker() {
+  dpState.startD = dpParseISO(state.dateFrom);
+  dpState.endD = dpParseISO(state.dateTo);
+  var now = new Date();
+  dpState.startY = dpState.startD ? dpState.startD.getFullYear() : now.getFullYear();
+  dpState.startM = dpState.startD ? dpState.startD.getMonth() : now.getMonth();
+  dpState.endY = dpState.endD ? dpState.endD.getFullYear() : now.getFullYear();
+  dpState.endM = dpState.endD ? dpState.endD.getMonth() : now.getMonth();
+  dpPopulateSelects();
+  // Set hour/minute selects to saved values
+  if (dpState.startD) {
+    document.getElementById('dpStartHour').value = (dpState.startD.getHours() < 10 ? '0' : '') + dpState.startD.getHours();
+    document.getElementById('dpStartMin').value = (dpState.startD.getMinutes() < 10 ? '0' : '') + dpState.startD.getMinutes();
+  }
+  if (dpState.endD) {
+    document.getElementById('dpEndHour').value = (dpState.endD.getHours() < 10 ? '0' : '') + dpState.endD.getHours();
+    document.getElementById('dpEndMin').value = (dpState.endD.getMinutes() < 10 ? '0' : '') + dpState.endD.getMinutes();
+  }
+  dpRender('start');
+  dpRender('end');
+  document.getElementById('datepickerModal').classList.add('open');
+}
+
+function closeDatePicker() {
+  document.getElementById('datepickerModal').classList.remove('open');
+}
+
+function confirmDateRange() {
+  // Capture current time selections
+  if (dpState.startD) {
+    dpState.startD.setHours(parseInt(document.getElementById('dpStartHour').value));
+    dpState.startD.setMinutes(parseInt(document.getElementById('dpStartMin').value));
+  }
+  if (dpState.endD) {
+    dpState.endD.setHours(parseInt(document.getElementById('dpEndHour').value));
+    dpState.endD.setMinutes(parseInt(document.getElementById('dpEndMin').value));
+  }
+  state.dateFrom = dpToISO(dpState.startD);
+  state.dateTo = dpToISO(dpState.endD);
+  updateDateRangeLabel();
+  closeDatePicker();
+  state.page = 1;
+  loadComments();
+}
+
+function clearDateRange() {
+  dpState.startD = null;
+  dpState.endD = null;
+  var now = new Date();
+  dpState.startY = now.getFullYear();
+  dpState.startM = now.getMonth();
+  dpState.endY = now.getFullYear();
+  dpState.endM = now.getMonth();
+  state.dateFrom = '';
+  state.dateTo = '';
+  updateDateRangeLabel();
+  closeDatePicker();
+  state.page = 1;
+  loadComments();
+}
+
+function updateDateRangeLabel() {
+  var el = document.getElementById('dateRangeLabel');
+  if (state.dateFrom && state.dateTo) {
+    // Short display: show date portion, hide time if both midnight
+    var f = state.dateFrom.substring(0, 16);
+    var t = state.dateTo.substring(0, 16);
+    el.textContent = f + ' ~ ' + t;
+  } else if (state.dateFrom) {
+    el.textContent = state.dateFrom.substring(0, 16) + ' ~';
+  } else if (state.dateTo) {
+    el.textContent = '~ ' + state.dateTo.substring(0, 16);
+  } else {
+    el.textContent = '全部时间';
+  }
+}
 
 function platformName(p) { return {bilibili:'B站', xueqiu:'雪球', xiaohongshu:'小红书'}[p] || p; }
 function esc(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

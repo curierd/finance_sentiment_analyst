@@ -223,4 +223,12 @@ class CommentRepository:
             where.append("sentiment_fix IS NOT NULL")
         elif locked == "0":
             where.append("sentiment_fix IS NULL")
+        df = filters.get("date_from")
+        if df:
+            where.append("created_at >= ?")
+            params.append(df)
+        dt = filters.get("date_to")
+        if dt:
+            where.append("created_at <= ?")
+            params.append(dt)
         return where, params

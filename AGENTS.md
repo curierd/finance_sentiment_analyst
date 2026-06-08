@@ -1,73 +1,74 @@
-﻿# Repository Guidelines
+﻿# AGENTS.md
 
-## Project Structure & Module Organization
+## Project structure
 
 ```
-textcnn_sentiment.py     # Core sentiment analyzer (rule-based + TextCNN)
-backend/                 # Flask three-layer backend
-  config.py              # DB path configuration
-  database.py            # sqlite3 connection helper
-  repositories/          # Data access layer (raw SQL)
-  services/              # Business logic layer
-  routes/                # HTTP layer (Flask Blueprint)
-frontend/                # Vanilla JS SPA
-  server.py              # Flask entry point (registers Blueprint, serves SPA)
-  index.html             # Single-file SPA with inline CSS/JS
-db/                      # Database
-  comments.db            # SQLite database file
-  comments_schema.sql    # Table schema
-  import_comments.py     # Import script
-  update_sentiment.py    # Batch sentiment re-analysis
-tests/                   # Unit tests (unittest)
-data/                    # Collected raw data (JSON)
+textcnn_sentiment.py       # Rule-based SentimentAnalyzer (TextCNN class defined but unused)
+frontend/server.py         # Flask entry point (also serves SPA, registers comment_bp)
+backend/                   # Three-layer: routes/ → services/ → repositories/
+  config.py                # DB_PATH from TEST_DN env or db/comments.db
+  database.py              # get_db(), set_db_path() for test isolation, row_to_dict()
+  api.md                   # Full REST API reference with request/response examples
+  SKILL.md                 # Detailed backend usage guide (inserts, queries, locking logic)
+frontend/
+  index.html               # Single-file vanilla JS SPA (no build tools, API base = '/api')
+  requirements.txt         # flask>=3.0.0
+db/
+  comments.db              # SQLite (WAL mode)
+  comments_schema.sql      # Schema: comments, up_masters, videos tables
+  import_comments.py       # Reads hardcoded JSON paths, inserts into DB
+  update_sentiment.py      # Batch analysis (skips sentiment_fix IS NOT NULL)
+tests/
+  helpers.py               # setup_test_db() creates temp DB with schema + seed data
+  test_comment_repository.py / test_comment_service.py / test_routes.py
+data/                      # Platform UP-master preset lists (*-finance-up.md)
+jobs/                      # Collection scripts + workflow doc (collect_comments.md)
+collect_bilibili.py        # Standalone Bilibili collector
+collect_xueqiu.py          # Standalone Xueqiu collector
 ```
 
-## Build, Test, and Development Commands
+## Key commands
 
 ```bash
-# Install dependencies
-pip install flask jieba torch numpy scikit-learn
-
-# Start the full app (backend API + frontend SPA)
+# Start app (Flask API + SPA on :5000)
 cd frontend && pip install -r requirements.txt && python server.py
-# → http://localhost:5000
 
-# Run unit tests
+# Run all tests
 python -m unittest tests.test_comment_repository tests.test_comment_service tests.test_routes -v
 
-# Batch sentiment re-analysis (skips manually locked rows)
+# Install deps (slim)
+pip install flask jieba torch numpy scikit-learn
+
+# Batch sentiment analysis (skips locked rows)
 python db/update_sentiment.py
 
-# Import new comments into the database
+# Import JSON comments into DB
 python db/import_comments.py
 
-# Smoke-test the sentiment analyzer
+# Smoke-test sentiment analyzer
 python textcnn_sentiment.py
 ```
 
-## Coding Style & Naming Conventions
+## Testing
 
-- **Python**: 4-space indentation, snake_case for files/variables/functions, PascalCase for classes.
-- **Frontend**: Vanilla JS with inline CSS in `frontend/index.html` — no build tools. Keep API base at `var API = '/api'`.
-- **Imports**: Standard library first, then third-party, then local modules.
-- **No formatter/linter configured** — match the style of surrounding code when editing.
+- `tests/helpers.py` sets `os.environ["TEST_DB_PATH"] = ""` then calls `set_db_path()` to redirect to a temp SQLite with schema + 6 seed rows.
+- Each test module calls `setup_test_db()` in `setUpModule` (module-level, once per file).
+- Tests never touch `db/comments.db`.
+- Repository: `test_comment_repository.py` tests CRUD, filtering, pagination, stats.
+- Service: `test_comment_service.py` tests validation (sentiment lock values, required content, platform enum, delete-not-found).
+- Routes: `test_routes.py` uses Flask test client, tests HTTP status codes and JSON responses.
 
-## Testing Guidelines
+## Architecture notes
 
-- **Framework**: Python `unittest` (standard library).
-- **Location**: All tests in `tests/` with `test_*.py` naming.
-- **Isolation**: Tests use `TEST_DB_PATH` environment variable to switch to a temporary database — never touch `db/comments.db`. Set it before importing backend modules.
-- **Coverage**: Each backend layer (repository, service, routes) has a corresponding test file.
+- **Sentiment lock**: `sentiment_fix IS NOT NULL` → manual lock; `update_sentiment.py` skips these rows; auto-analysis updates `WHERE sentiment IS NULL AND sentiment_fix IS NULL`.
+- **Displayed sentiment**: `COALESCE(sentiment_fix, sentiment)`.
+- **Platform constraint**: `CHECK(platform IN ('bilibili', 'xiaohongshu', 'xueqiu'))`.
+- **Chart image**: `/api/stats/timeline/image` spawns `node .claude/skills/chart-image/scripts/chart.mjs` to render a Vega-Lite donut chart PNG (temp file, deleted after send).
+- **API base**: Frontend uses `var API = '/api'` — change the host in `server.py` if switching ports.
+- **Bilibili collection**: Wait ≥1s between requests; on 412 error switch to `opencli bilibili`.
+- **Collection workflow**: See `jobs/collect_comments.md` for multi-platform collection steps.
 
-## Commit & Pull Request Guidelines
+## Conventions
 
-- **Format**: `<area>: <description>` — e.g., `frontend: 统计面板增加情绪时间线`, `backend: 新增时间线统计接口`.
-- **Language**: Chinese descriptions are common; English is also accepted.
-- **Granularity**: One logical change per commit. Keep commits focused on a single area (frontend, backend, db, tests).
-
-## Architecture Overview
-
-- **Sentiment analysis**: `SentimentAnalyzer` in `textcnn_sentiment.py` uses keyword scoring with negation handling and degree modifiers. The `TextCNN` class is defined but not used in the current execution path.
-- **Backend layers**: Routes parse HTTP → Services apply business logic → Repositories run raw SQL via `sqlite3`. `frontend/server.py` registers the `comment_bp` Blueprint.
-- **Locking logic**: `sentiment_fix IS NOT NULL` marks manually locked comments. Batch analysis (`update_sentiment.py`) skips these rows. The frontend toggles locking via `PATCH /api/comments/<id>`.
-- **Chart generation**: `/api/stats/timeline/image` returns a PNG stacked bar chart generated by the `chart-image` skill.
+- Commit format: `<area>: <description>` (e.g. `frontend: 统计面板增加情绪时间线`).
+- No formatter/linter configured — match surrounding code style.
