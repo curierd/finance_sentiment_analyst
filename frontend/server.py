@@ -20,9 +20,9 @@ app.register_blueprint(comment_bp)
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-@app.route("/comments/images/<path:filepath>")
-def serve_comment_image(filepath):
-    return send_from_directory(os.path.join(PROJECT_ROOT, "comments", "images"), filepath)
+@app.route("/comments/<path:filepath>")
+def serve_comment_file(filepath):
+    return send_from_directory(os.path.join(PROJECT_ROOT, "comments"), filepath)
 
 
 @app.route("/")

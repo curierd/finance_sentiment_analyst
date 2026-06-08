@@ -23,9 +23,9 @@ class CommentRepository:
         rows = conn.execute(
             f"""
             SELECT id, platform, comment_id, author_name, content, likes,
-                   replies, retweets, source_url, video_bvid, video_title,
-                   up_name, up_uid, symbol, created_at, collected_at,
-                   sentiment, sentiment_score, sentiment_fix
+                   replies, retweets, source_url, local_image_path, original_url,
+                   video_bvid, video_title, up_name, up_uid, symbol, created_at,
+                   collected_at, sentiment, sentiment_score, sentiment_fix
             FROM comments
             WHERE {' AND '.join(where) if where else '1=1'}
             ORDER BY id DESC

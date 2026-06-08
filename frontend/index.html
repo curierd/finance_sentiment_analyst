@@ -59,9 +59,9 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
 .main { flex: 1; overflow-y: auto; padding: 16px; }
 .comments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
 
-.card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; transition: all 0.15s; }
+.card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; transition: all 0.15s; width: 100%; height: 240px; display: flex; flex-direction: column; cursor: pointer; overflow: hidden; }
 .card:hover { border-color: var(--accent); background: var(--card-hover); }
-.card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-shrink: 0; }
 .platform-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
 .platform-badge.bilibili { background: rgba(0,161,214,0.2); color: var(--bili); }
 .platform-badge.xueqiu { background: rgba(26,173,25,0.2); color: var(--xueqiu); }
@@ -69,9 +69,11 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
 .card-author { font-size: 12px; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-likes { font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 3px; white-space: nowrap; }
 .card-likes svg { width: 12px; height: 12px; fill: var(--text-dim); }
-.card-content { font-size: 14px; line-height: 1.6; color: var(--text); margin: 8px 0; word-break: break-word; }
-.card-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 10px; }
+.card-content { font-size: 14px; line-height: 1.5; color: var(--text); margin: 8px 0; word-break: break-word; flex: 1; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+.card-meta { font-size: 11px; color: var(--text-dim); flex-shrink: 0; }
 .card-meta span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-image-indicator { margin-top: 6px; font-size: 11px; color: var(--accent); display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.card-image-indicator svg { width: 14px; height: 14px; }
 .card-meta-muted { opacity: 0.6; font-style: italic; }
 
 .sentiment-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -200,6 +202,24 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
 .datepicker-btn-cancel:hover { border-color: var(--accent); color: var(--text); }
 .datepicker-btn-ok { background: var(--accent); border: 1px solid var(--accent); color: #fff; }
 .datepicker-btn-ok:hover { opacity: 0.85; }
+
+/* Comment detail modal */
+.detail-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.75); display: none; align-items: center; justify-content: center; z-index: 1300; padding: 20px; }
+.detail-modal.open { display: flex; }
+.detail-modal-content { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; max-width: 700px; width: 100%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; }
+.detail-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.detail-modal-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.detail-modal-close { background: none; border: none; font-size: 24px; color: var(--text-dim); cursor: pointer; line-height: 1; padding: 0; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+.detail-modal-close:hover { color: var(--text); }
+.detail-modal-body { padding: 18px; overflow-y: auto; flex: 1; }
+.detail-content { font-size: 15px; line-height: 1.7; color: var(--text); white-space: pre-wrap; word-break: break-word; margin-bottom: 16px; }
+.detail-image { max-width: 100%; border-radius: 8px; margin-bottom: 16px; border: 1px solid var(--border); }
+.detail-meta { background: var(--bg); border-radius: 8px; padding: 14px; font-size: 13px; color: var(--text-dim); }
+.detail-meta-row { display: flex; margin-bottom: 8px; }
+.detail-meta-row:last-child { margin-bottom: 0; }
+.detail-meta-label { width: 70px; flex-shrink: 0; color: var(--text-dim); }
+.detail-meta-value { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+.detail-modal-footer { padding: 12px 18px; border-top: 1px solid var(--border); flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -370,6 +390,17 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
       <button class="confirm-btn confirm-btn-cancel" onclick="closeConfirmModal()">取消</button>
       <button class="confirm-btn confirm-btn-ok" id="confirmOkBtn" onclick="confirmOk()">删除</button>
     </div>
+  </div>
+</div>
+
+<div class="detail-modal" id="detailModal" onclick="if(event.target===this)closeDetailModal()">
+  <div class="detail-modal-content">
+    <div class="detail-modal-header">
+      <div class="detail-modal-title" id="detailModalTitle">评论详情</div>
+      <button class="detail-modal-close" onclick="closeDetailModal()">&times;</button>
+    </div>
+    <div class="detail-modal-body" id="detailModalBody"></div>
+    <div class="detail-modal-footer" id="detailModalFooter"></div>
   </div>
 </div>
 
@@ -554,6 +585,7 @@ function loadComments() {
     '&date_from=' + encodeURIComponent(state.dateFrom) +
     '&date_to=' + encodeURIComponent(state.dateTo);
   fetch(API + '/comments?' + params).then(function(res) { return res.json(); }).then(function(data) {
+    window.currentComments = data;
     state.total = data.total;
     state.pages = data.pages;
     if (data.items.length === 0) {
@@ -612,8 +644,12 @@ function renderCard(item) {
     ? '<span>📅 ' + esc(displayDate) + '</span>'
     : '<span class="card-meta-muted">📅 未知日期</span>';
   var lockSvg = '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2z"/></svg>';
-  var unlockBtn = isFixed ? '<button class="unlock-btn" onclick="clearFix(' + item.id + ')">解除</button>' : '';
-  return '<div class="card">' +
+  var unlockBtn = isFixed ? '<button class="unlock-btn" onclick="event.stopPropagation();clearFix(' + item.id + ')">解除</button>' : '';
+  var hasImage = item.local_image_path || item.original_url;
+  var imageIndicator = hasImage
+    ? '<div class="card-image-indicator"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>有图片</div>'
+    : '';
+  var cardHtml = '<div class="card" onclick="openDetailModal(' + item.id + ')">' +
     '<div class="card-header">' +
       '<span class="platform-badge ' + item.platform + '">' + platformName(item.platform) + '</span>' +
       '<span class="card-author">' + esc(item.author_name || '-') + '</span>' +
@@ -621,7 +657,8 @@ function renderCard(item) {
     '</div>' +
     '<div class="card-content">' + esc(item.content || '') + '</div>' +
     '<div class="card-meta">' + videoInfo + upInfo + authorInfo + dateInfo + '</div>' +
-    '<div class="sentiment-row">' +
+    imageIndicator +
+    '<div class="sentiment-row" onclick="event.stopPropagation()">' +
       '<div class="sentiment-badge ' + posClass + '">' + (isFixed ? lockSvg : '') + displaySentiment + '</div>' +
       '<div class="sentiment-selector">' +
         '<button class="pos ' + (displaySentiment==='正面'?'selected':'') + '" onclick="setSentiment(' + item.id + ',\'正面\')">正面</button>' +
@@ -631,6 +668,7 @@ function renderCard(item) {
         '<button class="card-delete" title="删除评论" onclick="askDelete(' + item.id + ')">删除</button>' +
       '</div>' +
     '</div></div>';
+  return cardHtml;
 }
 
 function renderPagination() {
@@ -944,6 +982,115 @@ function updateDateRangeLabel() {
 
 function platformName(p) { return {bilibili:'B站', xueqiu:'雪球', xiaohongshu:'小红书'}[p] || p; }
 function esc(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+var currentDetailItem = null;
+
+function openDetailModal(commentId) {
+  // First check if we have the item in current loaded items
+  var item = null;
+  if (window.currentComments && window.currentComments.items) {
+    for (var i = 0; i < window.currentComments.items.length; i++) {
+      if (window.currentComments.items[i].id === commentId) {
+        item = window.currentComments.items[i];
+        break;
+      }
+    }
+  }
+  if (!item) {
+    // If not, fetch from API
+    fetch(API + '/comments/' + commentId)
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        renderDetailModal(data);
+      })
+      .catch(function(err) {
+        console.error('Failed to fetch comment:', err);
+      });
+  } else {
+    renderDetailModal(item);
+  }
+}
+
+function renderDetailModal(item) {
+  currentDetailItem = item;
+  var modal = document.getElementById('detailModal');
+  var body = document.getElementById('detailModalBody');
+  var footer = document.getElementById('detailModalFooter');
+  var title = document.getElementById('detailModalTitle');
+
+  title.textContent = platformName(item.platform) + ' - 评论详情';
+
+  var sentiment = item.sentiment || '中性';
+  var isFixed = !!item.sentiment_fix;
+  var displaySentiment = isFixed ? item.sentiment_fix : sentiment;
+  var posClass = displaySentiment === '正面' ? 'pos' : displaySentiment === '负面' ? 'neg' : 'neu';
+  var lockSvg = '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" style="display:inline-block;vertical-align:-2px;margin-right:4px;"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2z"/></svg>';
+
+  // Image section
+  var imageHtml = '';
+  if (item.local_image_path) {
+    imageHtml = '<img class="detail-image" src="/' + esc(item.local_image_path) + '" alt="评论图片" onerror="this.style.display=\'none\'"/>';
+  } else if (item.original_url) {
+    imageHtml = '<img class="detail-image" src="' + esc(item.original_url) + '" alt="评论图片" onerror="this.style.display=\'none\'"/>';
+  }
+
+  // Meta section
+  var metaHtml = '<div class="detail-meta">';
+  if (item.author_name) {
+    metaHtml += '<div class="detail-meta-row"><span class="detail-meta-label">作者</span><span class="detail-meta-value">' + esc(item.author_name) + '</span></div>';
+  }
+  if (item.video_title) {
+    metaHtml += '<div class="detail-meta-row"><span class="detail-meta-label">视频</span><span class="detail-meta-value">' + esc(item.video_title) + '</span></div>';
+  }
+  if (item.symbol) {
+    metaHtml += '<div class="detail-meta-row"><span class="detail-meta-label">股票</span><span class="detail-meta-value">' + esc(item.symbol) + '</span></div>';
+  }
+  if (item.up_name) {
+    metaHtml += '<div class="detail-meta-row"><span class="detail-meta-label">UP主</span><span class="detail-meta-value">' + esc(item.up_name) + '</span></div>';
+  }
+  if (item.created_at) {
+    metaHtml += '<div class="detail-meta-row"><span class="detail-meta-label">时间</span><span class="detail-meta-value">' + esc(item.created_at) + '</span></div>';
+  }
+  metaHtml += '<div class="detail-meta-row"><span class="detail-meta-label">点赞</span><span class="detail-meta-value">' + (item.likes || 0) + '</span></div>';
+  metaHtml += '</div>';
+
+  body.innerHTML = imageHtml + '<div class="detail-content">' + esc(item.content || '') + '</div>' + metaHtml;
+
+  // Footer with sentiment controls
+  var unlockBtn = isFixed ? '<button class="unlock-btn" onclick="clearFix(' + item.id + ');refreshDetailModal()">解除</button>' : '';
+  footer.innerHTML = '<div class="sentiment-row" style="margin:0;justify-content:space-between;">' +
+    '<div class="sentiment-badge ' + posClass + '">' + (isFixed ? lockSvg : '') + displaySentiment + '</div>' +
+    '<div class="sentiment-selector">' +
+      '<button class="pos ' + (displaySentiment==='正面'?'selected':'') + '" onclick="setSentiment(' + item.id + ',\'正面\');refreshDetailModal()">正面</button>' +
+      '<button class="neu ' + (displaySentiment==='中性'?'selected':'') + '" onclick="setSentiment(' + item.id + ',\'中性\');refreshDetailModal()">中性</button>' +
+      '<button class="neg ' + (displaySentiment==='负面'?'selected':'') + '" onclick="setSentiment(' + item.id + ',\'负面\');refreshDetailModal()">负面</button>' +
+      unlockBtn +
+      '<button class="card-delete" title="删除评论" onclick="askDelete(' + item.id + ')">删除</button>' +
+    '</div>' +
+  '</div>';
+
+  modal.classList.add('open');
+}
+
+function refreshDetailModal() {
+  if (currentDetailItem) {
+    // Refetch and re-render
+    fetch(API + '/comments/' + currentDetailItem.id)
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        currentDetailItem = data;
+        renderDetailModal(data);
+      })
+      .catch(function(err) {
+        console.error('Failed to refresh comment:', err);
+      });
+  }
+}
+
+function closeDetailModal() {
+  document.getElementById('detailModal').classList.remove('open');
+  currentDetailItem = null;
+}
 
 loadStats();
 loadComments();
