@@ -7,6 +7,7 @@
 ### B站
 - 使用`opencli bilibili`
 - 跳过黑名单up主
+- 注意评论发布时间转化为时间戳
 
 ### 小红书
 - 使用`opencli xiaohongshu`命令行
@@ -18,6 +19,7 @@
 - 使用`opencli xueqiu`命令行
 - 预设数据`data/xiaohongshu-finance-up.md`
 - 预设数据`data/sections/{CPO,laodeng}.md`
+- 注意评论发布时间转化为时间戳
 
 ## 输出
 0.每个不同平台保存成不同的json结果文件,保存到comments文件夹下

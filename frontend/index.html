@@ -583,9 +583,33 @@ function renderCard(item) {
   // empty? Show a muted placeholder so the row layout stays consistent
   // and users can see "this card has no date info" instead of wondering
   // if the field is broken.
-  var realDate = (item.created_at && item.created_at.substring(0, 10)) || '';
-  var dateInfo = realDate
-    ? '<span>📅 ' + esc(realDate) + '</span>'
+  var realDate = item.created_at || '';
+  var displayDate = '';
+  if (realDate) {
+    // Format: handle both "YYYY-MM-DD HH:MM:SS" (local) and "YYYY-MM-DDTHH:MM:SS.sssZ" (ISO)
+    var d;
+    if (realDate.indexOf('T') !== -1) {
+      // ISO format, convert to local time
+      d = new Date(realDate);
+      if (!isNaN(d.getTime())) {
+        var y = d.getFullYear();
+        var M = d.getMonth() + 1;
+        var day = d.getDate();
+        var h = d.getHours();
+        var m = d.getMinutes();
+        var s = d.getSeconds();
+        displayDate = y + '-' + (M < 10 ? '0' : '') + M + '-' + (day < 10 ? '0' : '') + day + ' ' +
+          (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+      } else {
+        displayDate = realDate;
+      }
+    } else if (realDate.length >= 10) {
+      // Already a local datetime string or just date
+      displayDate = realDate;
+    }
+  }
+  var dateInfo = displayDate
+    ? '<span>📅 ' + esc(displayDate) + '</span>'
     : '<span class="card-meta-muted">📅 未知日期</span>';
   var lockSvg = '<svg viewBox="0 0 24 24" width="10" height="10" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2z"/></svg>';
   var unlockBtn = isFixed ? '<button class="unlock-btn" onclick="clearFix(' + item.id + ')">解除</button>' : '';
