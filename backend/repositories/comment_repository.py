@@ -62,25 +62,29 @@ class CommentRepository:
         conn.close()
         return row_to_dict(row)
 
-    def stats(self):
+    def stats(self, filters=None):
+        filters = filters or {}
+        where, params = self._build_where(filters)
+        where_clause = " AND ".join(where) if where else "1=1"
+
         conn = get_db()
-        auto = conn.execute("""
+        auto = conn.execute(f"""
             SELECT sentiment as s, COUNT(*) as cnt
-            FROM comments WHERE sentiment_fix IS NULL
+            FROM comments WHERE sentiment_fix IS NULL AND ({where_clause})
             GROUP BY s
-        """).fetchall()
+        """, params).fetchall()
 
-        locked = conn.execute("""
+        locked = conn.execute(f"""
             SELECT sentiment_fix as s, COUNT(*) as cnt
-            FROM comments WHERE sentiment_fix IS NOT NULL
+            FROM comments WHERE sentiment_fix IS NOT NULL AND ({where_clause})
             GROUP BY s
-        """).fetchall()
+        """, params).fetchall()
 
-        weighted = conn.execute("""
+        weighted = conn.execute(f"""
             SELECT sentiment as s, SUM(likes) as total_likes
-            FROM comments WHERE likes > 0 AND sentiment_fix IS NULL
+            FROM comments WHERE likes > 0 AND sentiment_fix IS NULL AND ({where_clause})
             GROUP BY s
-        """).fetchall()
+        """, params).fetchall()
         total_likes = sum(r["total_likes"] for r in weighted if r["s"])
 
         conn.close()
@@ -95,7 +99,11 @@ class CommentRepository:
             },
         }
 
-    def stats_by_date(self, granularity="day"):
+    def stats_by_date(self, granularity="day", filters=None):
+        filters = filters or {}
+        where, params = self._build_where(filters)
+        where_clause = " AND ".join(where) if where else "1=1"
+
         if granularity not in ("day", "week", "month"):
             granularity = "day"
         date_format = {
@@ -113,10 +121,10 @@ class CommentRepository:
                 COUNT(*) as cnt,
                 SUM(likes) as likes
             FROM comments
-            WHERE s IS NOT NULL
+            WHERE s IS NOT NULL AND ({where_clause})
             GROUP BY period, s
             ORDER BY period ASC
-        """).fetchall()
+        """, params).fetchall()
         conn.close()
 
         # Build {period: {sentiment: {cnt, likes}}}

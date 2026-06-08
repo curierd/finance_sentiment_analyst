@@ -20,8 +20,8 @@ class CommentService:
             raise ValueError("Invalid sentiment_fix value")
         return self.repo.update_sentiment_fix(comment_id, sentiment_fix)
 
-    def get_stats(self):
-        return self.repo.stats()
+    def get_stats(self, filters=None):
+        return self.repo.stats(filters)
 
     def get_up_masters(self):
         return self.repo.find_up_masters()
@@ -42,7 +42,7 @@ class CommentService:
             raise ValueError("Comment not found")
         return deleted
 
-    def get_stats_by_date(self, granularity="day"):
+    def get_stats_by_date(self, granularity="day", filters=None):
         if granularity not in ("day", "week", "month"):
             granularity = "day"
-        return self.repo.stats_by_date(granularity)
+        return self.repo.stats_by_date(granularity, filters)

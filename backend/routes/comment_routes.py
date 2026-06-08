@@ -68,7 +68,18 @@ def delete_comment(comment_id):
 
 @comment_bp.route("/api/stats", methods=["GET"])
 def get_stats():
-    return jsonify(get_service().get_stats())
+    filters = {
+        "platform": request.args.get("platform"),
+        "up_name": request.args.get("up_name"),
+        "video_title": request.args.get("video_title"),
+        "sentiment": request.args.get("sentiment"),
+        "author": request.args.get("author"),
+        "locked": request.args.get("locked"),
+        "date_from": request.args.get("date_from"),
+        "date_to": request.args.get("date_to"),
+    }
+    filters = {k: v for k, v in filters.items() if v is not None and v != ""}
+    return jsonify(get_service().get_stats(filters))
 
 
 @comment_bp.route("/api/stats/timeline", methods=["GET"])
@@ -76,7 +87,18 @@ def get_stats_timeline():
     granularity = request.args.get("granularity", "day")
     if granularity not in ("day", "week", "month"):
         granularity = "day"
-    return jsonify(get_service().get_stats_by_date(granularity))
+    filters = {
+        "platform": request.args.get("platform"),
+        "up_name": request.args.get("up_name"),
+        "video_title": request.args.get("video_title"),
+        "sentiment": request.args.get("sentiment"),
+        "author": request.args.get("author"),
+        "locked": request.args.get("locked"),
+        "date_from": request.args.get("date_from"),
+        "date_to": request.args.get("date_to"),
+    }
+    filters = {k: v for k, v in filters.items() if v is not None and v != ""}
+    return jsonify(get_service().get_stats_by_date(granularity, filters))
 
 
 @comment_bp.route("/api/stats/timeline/image", methods=["GET"])
@@ -84,7 +106,18 @@ def get_stats_timeline_image():
     granularity = request.args.get("granularity", "day")
     if granularity not in ("day", "week", "month"):
         granularity = "day"
-    data = get_service().get_stats_by_date(granularity)
+    filters = {
+        "platform": request.args.get("platform"),
+        "up_name": request.args.get("up_name"),
+        "video_title": request.args.get("video_title"),
+        "sentiment": request.args.get("sentiment"),
+        "author": request.args.get("author"),
+        "locked": request.args.get("locked"),
+        "date_from": request.args.get("date_from"),
+        "date_to": request.args.get("date_to"),
+    }
+    filters = {k: v for k, v in filters.items() if v is not None and v != ""}
+    data = get_service().get_stats_by_date(granularity, filters)
 
     import subprocess, json, os, tempfile
 

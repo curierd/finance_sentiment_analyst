@@ -428,7 +428,7 @@ function loadTimeline() {
   t.title = '点击查看大图';
   t.onload = function() { container.innerHTML = ''; container.appendChild(t); t.onclick = openChartModal; };
   t.onerror = function() { container.innerHTML = '<div style="font-size:12px;color:var(--neg);text-align:center;padding:20px">图表加载失败</div>'; };
-  t.src = API + '/stats/timeline/image?granularity=' + timelineGranularity + '&_=' + Date.now();
+  t.src = API + '/stats/timeline/image?granularity=' + timelineGranularity + '&' + buildStatsParams() + '&_=' + Date.now();
   timelineImg = t;
 }
 
@@ -438,7 +438,7 @@ function openChartModal() {
   var title = document.getElementById('chartModalTitle');
   var granLabel = { day: '日', week: '周', month: '月' };
   title.textContent = '情绪时间线（' + (granLabel[timelineGranularity] || timelineGranularity) + '）';
-  img.src = API + '/stats/timeline/image?granularity=' + timelineGranularity + '&_=' + Date.now();
+  img.src = API + '/stats/timeline/image?granularity=' + timelineGranularity + '&' + buildStatsParams() + '&_=' + Date.now();
   modal.classList.add('open');
 }
 
@@ -446,8 +446,18 @@ function closeChartModal() {
   document.getElementById('chartModal').classList.remove('open');
 }
 
+function buildStatsParams() {
+  return 'platform=' + encodeURIComponent(state.platform) +
+    '&sentiment=' + encodeURIComponent(state.sentiment) +
+    '&locked=' + encodeURIComponent(state.locked) +
+    '&author=' + encodeURIComponent(state.author) +
+    '&video_title=' + encodeURIComponent(state.video) +
+    '&date_from=' + encodeURIComponent(state.dateFrom) +
+    '&date_to=' + encodeURIComponent(state.dateTo);
+}
+
 function loadStats() {
-  fetch(API + '/stats').then(function(res) { return res.json(); }).then(function(data) {
+  fetch(API + '/stats?' + buildStatsParams()).then(function(res) { return res.json(); }).then(function(data) {
     var auto = data.auto || {};
     var locked = data.locked || {};
     var ac = data.auto_count || 0;
@@ -465,7 +475,7 @@ function loadStats() {
 }
 
 function loadStatsPanel() {
-  fetch(API + '/stats').then(function(res) { return res.json(); }).then(function(data) {
+  fetch(API + '/stats?' + buildStatsParams()).then(function(res) { return res.json(); }).then(function(data) {
     var auto = data.auto || {};
     var locked = data.locked || {};
     var ac = data.auto_count || 0;
@@ -502,36 +512,31 @@ function loadStatsPanel() {
 }
 
 function loadPlatformStats() {
-  var params = 'page=1&page_size=1';
+  var baseParams = buildStatsParams();
   var platforms = ['bilibili', 'xueqiu', 'xiaohongshu'];
   var container = document.getElementById('platformBreakdown');
-  var html = '';
   var completed = 0;
+  var totals = {};
   platforms.forEach(function(p) {
-    fetch(API + '/comments?platform=' + encodeURIComponent(p) + '&page=1&page_size=1').then(function(res) { return res.json(); }).then(function(data) {
+    fetch(API + '/comments?platform=' + encodeURIComponent(p) + '&' + baseParams + '&page=1&page_size=1').then(function(res) { return res.json(); }).then(function(data) {
       completed++;
-      var name = {bilibili:'B站', xueqiu:'雪球', xiaohongshu:'小红书'}[p];
-      var color = {bilibili:'var(--bili)', xueqiu:'var(--xueqiu)', xiaohongshu:'var(--xiaohongshu)'}[p];
-      var total = data.total || 0;
-      html += '<div class="platform-stat">' +
-        '<span class="platform-stat-name" style="color:' + color + '">' + name + '</span>' +
-        '<div class="platform-stat-bar"><div class="platform-stat-fill" style="background:' + color + ';width:0%" id="pfFill_' + p + '"></div></div>' +
-        '<span class="platform-stat-count">' + total + '</span>' +
-        '</div>';
+      totals[p] = data.total || 0;
       if (completed === platforms.length) {
-        container.innerHTML = html;
-        fetch(API + '/stats').then(function(res) { return res.json(); }).then(function(stData) {
-          var auto = stData.auto || {};
-          var locked = stData.locked || {};
-          var grandTotal = (stData.auto_count||0) + (stData.locked_count||0);
-          platforms.forEach(function(p2) {
-            fetch(API + '/comments?platform=' + encodeURIComponent(p2) + '&page=1&page_size=1').then(function(res) { return res.json(); }).then(function(d) {
-              var t = d.total || 0;
-              var fill = document.getElementById('pfFill_' + p2);
-              if (fill && grandTotal > 0) fill.style.width = (t/grandTotal*100).toFixed(1) + '%';
-            });
-          });
+        var grandTotal = 0;
+        platforms.forEach(function(p2) { grandTotal += totals[p2]; });
+        var htmlFinal = '';
+        platforms.forEach(function(p2) {
+          var name = {bilibili:'B站', xueqiu:'雪球', xiaohongshu:'小红书'}[p2];
+          var color = {bilibili:'var(--bili)', xueqiu:'var(--xueqiu)', xiaohongshu:'var(--xiaohongshu)'}[p2];
+          var t = totals[p2];
+          var width = grandTotal > 0 ? (t/grandTotal*100).toFixed(1) : 0;
+          htmlFinal += '<div class="platform-stat">' +
+            '<span class="platform-stat-name" style="color:' + color + '">' + name + '</span>' +
+            '<div class="platform-stat-bar"><div class="platform-stat-fill" style="background:' + color + ';width:' + width + '%"></div></div>' +
+            '<span class="platform-stat-count">' + t + '</span>' +
+            '</div>';
         });
+        container.innerHTML = htmlFinal;
       }
     });
   });
@@ -614,12 +619,12 @@ function renderPagination() {
 
 function setSentiment(id, sentiment) {
   fetch(API + '/comments/' + id, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({sentiment_fix: sentiment}) })
-    .then(function() { loadComments(); loadStats(); });
+    .then(function() { loadComments(); refreshStatsIfVisible(); });
 }
 
 function clearFix(id) {
   fetch(API + '/comments/' + id, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({sentiment_fix: null}) })
-    .then(function() { loadComments(); loadStats(); });
+    .then(function() { loadComments(); refreshStatsIfVisible(); });
 }
 
 var pendingDeleteId = null;
@@ -656,7 +661,7 @@ function confirmOk() {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       closeConfirmModal();
       loadComments();
-      loadStats();
+      refreshStatsIfVisible();
     })
     .catch(function(err) {
       btn.disabled = false;
@@ -679,6 +684,7 @@ function setSentimentFilter(val) {
     if (b.dataset.sentiment === '中性') b.classList.add('neu');
   }
   loadComments();
+  refreshStatsIfVisible();
 }
 
 function setLockedFilter(val) {
@@ -691,6 +697,13 @@ function setLockedFilter(val) {
     if (val === '' && btns[i].dataset.locked === '') btns[i].classList.add('active');
   }
   loadComments();
+}
+
+function refreshStatsIfVisible() {
+  loadStats();
+  if (statsPanelVisible) {
+    loadStatsPanel();
+  }
 }
 
 function goPage(p) {
@@ -706,6 +719,7 @@ function debounceLoad() {
   debounceTimer = setTimeout(function() {
     state.page = 1;
     loadComments();
+    refreshStatsIfVisible();
   }, 250);
 }
 
@@ -716,6 +730,7 @@ document.querySelectorAll('.platform-tabs button').forEach(function(btn) {
     state.platform = btn.dataset.platform;
     state.page = 1;
     loadComments();
+    refreshStatsIfVisible();
   });
 });
 
@@ -867,6 +882,7 @@ function confirmDateRange() {
   closeDatePicker();
   state.page = 1;
   loadComments();
+  refreshStatsIfVisible();
 }
 
 function clearDateRange() {
@@ -883,6 +899,7 @@ function clearDateRange() {
   closeDatePicker();
   state.page = 1;
   loadComments();
+  refreshStatsIfVisible();
 }
 
 function updateDateRangeLabel() {
