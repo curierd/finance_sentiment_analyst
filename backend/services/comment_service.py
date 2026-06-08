@@ -20,6 +20,12 @@ class CommentService:
             raise ValueError("Invalid sentiment_fix value")
         return self.repo.update_sentiment_fix(comment_id, sentiment_fix)
 
+    def update_image(self, comment_id, local_image_path=None, original_url=None):
+        comment = self.repo.find_by_id(comment_id)
+        if not comment:
+            raise ValueError("Comment not found")
+        return self.repo.update_image(comment_id, local_image_path, original_url)
+
     def get_stats(self, filters=None):
         return self.repo.stats(filters)
 

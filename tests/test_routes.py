@@ -74,7 +74,35 @@ class TestRoutes(unittest.TestCase):
         resp = self.client.get("/api/comments/999999")
         self.assertEqual(resp.status_code, 200)
 
-    # PATCH /api/comments/<id>
+    # PATCH /api/comments/<id>/image
+    def test_patch_comment_image_updates_path(self):
+        resp = self.client.patch("/api/comments/" + str(self.test_id) + "/image",
+            json={"local_image_path": "comments/images/bilibili/test.jpg"},
+            content_type="application/json")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["local_image_path"], "comments/images/bilibili/test.jpg")
+
+    def test_patch_comment_image_updates_original_url(self):
+        resp = self.client.patch("/api/comments/" + str(self.test_id) + "/image",
+            json={"original_url": "https://example.com/img.jpg"},
+            content_type="application/json")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertEqual(data["original_url"], "https://example.com/img.jpg")
+
+    def test_patch_comment_image_rejects_empty_body(self):
+        resp = self.client.patch("/api/comments/" + str(self.test_id) + "/image",
+            json={},
+            content_type="application/json")
+        self.assertEqual(resp.status_code, 400)
+
+    def test_patch_comment_image_404_for_missing(self):
+        resp = self.client.patch("/api/comments/999999/image",
+            json={"local_image_path": "test.jpg"},
+            content_type="application/json")
+        self.assertEqual(resp.status_code, 404)
+
     def test_patch_comment_lock(self):
         resp = self.client.patch("/api/comments/" + str(self.test_id),
             json={"sentiment_fix": "负面"},

@@ -57,6 +57,59 @@ def update_comment(comment_id):
         return jsonify({"error": str(e)}), 400
 
 
+@comment_bp.route("/api/comments/<int:comment_id>/image", methods=["PATCH"])
+def update_comment_image(comment_id):
+    data = request.get_json() or {}
+    local_image_path = data.get("local_image_path")
+    original_url = data.get("original_url")
+    if local_image_path is None and original_url is None:
+        return jsonify({"error": "At least one of local_image_path or original_url is required"}), 400
+    try:
+        return jsonify(get_service().update_image(comment_id, local_image_path, original_url))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+
+@comment_bp.route("/api/comments/<int:comment_id>/image/upload", methods=["POST"])
+def upload_comment_image(comment_id):
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    file = request.files["file"]
+    if not file.filename:
+        return jsonify({"error": "Empty filename"}), 400
+
+    import os
+    from werkzeug.utils import secure_filename
+
+    # Resolve platform to pick subdirectory
+    try:
+        comment = get_service().get_comment(comment_id)
+    except Exception:
+        comment = None
+    if not comment:
+        return jsonify({"error": "Comment not found"}), 404
+
+    platform = comment.get("platform") or "other"
+    image_dir = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "comments", "images", platform,
+    )
+    os.makedirs(image_dir, exist_ok=True)
+
+    ext = os.path.splitext(file.filename)[1] or ".jpg"
+    filename = f"comment_{comment_id}{ext}"
+    save_path = os.path.join(image_dir, filename)
+    file.save(save_path)
+
+    local_image_path = os.path.relpath(save_path, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    original_url = request.form.get("original_url")
+
+    try:
+        return jsonify(get_service().update_image(comment_id, local_image_path, original_url))
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+
 @comment_bp.route("/api/comments/<int:comment_id>", methods=["DELETE"])
 def delete_comment(comment_id):
     try:

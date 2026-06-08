@@ -16,6 +16,8 @@
 | POST | `/api/comments` | 新增评论 |
 | GET | `/api/comments/<id>` | 获取单条评论 |
 | PATCH | `/api/comments/<id>` | 锁定/解锁情绪 |
+| PATCH | `/api/comments/<id>/image` | 更新评论配图路径 |
+| POST | `/api/comments/<id>/image/upload` | 上传评论配图文件 |
 | DELETE | `/api/comments/<id>` | 删除评论 |
 | GET | `/api/stats` | 情绪统计聚合 |
 | GET | `/api/stats/timeline` | 按时间线情绪聚合 |
@@ -153,6 +155,64 @@
 ```
 
 无效值返回 `400`。
+
+---
+
+## PATCH /api/comments/<id>/image
+
+更新评论的配图路径。
+
+### Request Body
+
+```json
+{
+  "local_image_path": "comments/images/bilibili/comment_123.jpg",
+  "original_url": "https://example.com/original.jpg"
+}
+```
+
+至少提供 `local_image_path` 或 `original_url` 之一。
+
+### Response
+
+```json
+{
+  "id": 123,
+  "local_image_path": "comments/images/bilibili/comment_123.jpg",
+  "original_url": "https://example.com/original.jpg",
+  ...
+}
+```
+
+评论不存在返回 `404`，无有效字段返回 `400`。
+
+---
+
+## POST /api/comments/<id>/image/upload
+
+上传配图文件，自动保存到 `comments/images/<platform>/` 目录并更新 `local_image_path`。
+
+### Request
+
+`Content-Type: multipart/form-data`
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `file` | file | 是 | 图片文件 |
+| `original_url` | string | 否 | 原始图片 URL |
+
+### Response
+
+```json
+{
+  "id": 123,
+  "local_image_path": "comments/images/bilibili/comment_123.jpg",
+  "original_url": "https://example.com/original.jpg",
+  ...
+}
+```
+
+评论不存在返回 `404`，未提供文件返回 `400`。
 
 ---
 

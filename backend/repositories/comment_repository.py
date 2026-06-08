@@ -48,6 +48,26 @@ class CommentRepository:
         conn.close()
         return row_to_dict(row)
 
+    def update_image(self, comment_id, local_image_path=None, original_url=None):
+        conn = get_db()
+        sets, params = [], []
+        if local_image_path is not None:
+            sets.append("local_image_path = ?")
+            params.append(local_image_path)
+        if original_url is not None:
+            sets.append("original_url = ?")
+            params.append(original_url)
+        if not sets:
+            row = conn.execute("SELECT * FROM comments WHERE id = ?", (comment_id,)).fetchone()
+            conn.close()
+            return row_to_dict(row)
+        params.append(comment_id)
+        conn.execute(f"UPDATE comments SET {', '.join(sets)} WHERE id = ?", params)
+        conn.commit()
+        row = conn.execute("SELECT * FROM comments WHERE id = ?", (comment_id,)).fetchone()
+        conn.close()
+        return row_to_dict(row)
+
     def update_sentiment_fix(self, comment_id, sentiment_fix):
         conn = get_db()
         if sentiment_fix:
@@ -169,9 +189,10 @@ class CommentRepository:
         conn.execute("""
             INSERT INTO comments
                 (platform, comment_id, author_name, content, likes,
-                 source_url, video_bvid, video_title, up_name, up_uid,
+                 source_url, local_image_path, original_url,
+                 video_bvid, video_title, up_name, up_uid,
                  symbol, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             data.get("platform"),
             data.get("comment_id"),
@@ -179,6 +200,8 @@ class CommentRepository:
             data.get("content"),
             data.get("likes", 0),
             data.get("source_url"),
+            data.get("local_image_path"),
+            data.get("original_url"),
             data.get("video_bvid"),
             data.get("video_title"),
             data.get("up_name"),

@@ -17,6 +17,13 @@ from backend.routes.comment_routes import comment_bp
 app = Flask(__name__, static_folder=".")
 app.register_blueprint(comment_bp)
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+@app.route("/comments/images/<path:filepath>")
+def serve_comment_image(filepath):
+    return send_from_directory(os.path.join(PROJECT_ROOT, "comments", "images"), filepath)
+
 
 @app.route("/")
 def index():
