@@ -11,7 +11,16 @@
 from collections import Counter
 from typing import Any, Iterable
 
-from textcnn_sentiment import SentimentAnalyzer
+import importlib.util
+import os as _os
+
+_spec = importlib.util.spec_from_file_location(
+    "textcnn_sentiment",
+    _os.path.join(_os.path.dirname(__file__), "textcnn_sentiment.py"),
+)
+_mod = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+SentimentAnalyzer = _mod.SentimentAnalyzer
 
 SENTIMENTS: tuple[str, ...] = ("正面", "中性", "负面")
 
