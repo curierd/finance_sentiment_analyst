@@ -1,320 +1,505 @@
-"""Collect comments from Bilibili, Xiaohongshu, and Xueqiu.
-
-Output:
-- comments/bilibili_YYYY-MM-DD.json
-- comments/xiaohongshu_YYYY-MM-DD.json
-- comments/xueqiu_YYYY-MM-DD.json
-- intermediate/  for partial files
+#!/usr/bin/env python3
 """
+收集三个平台（B站、小红书、雪球）的财经评论
+"""
+
+import argparse
 import json
-import re
+import os
 import subprocess
+import sys
 import time
-import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
-ROOT = Path('/home/rjh/finance_sentiment_analyst')
-TODAY = datetime.date.today().isoformat()
-COMMENTS_DIR = ROOT / 'comments'
-INTERMEDIATE_DIR = ROOT / 'intermediate'
-COMMENTS_DIR.mkdir(parents=True, exist_ok=True)
-INTERMEDIATE_DIR.mkdir(parents=True, exist_ok=True)
+# 添加项目根目录到 Python 路径
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
-# Parse Bilibili UP list
-BILIBILI_UP_MD = ROOT / 'data' / 'bilibili-finance-up.md'
-BILIBILI_UPS = []
-BILIBILI_BLACKLIST = []
-
-if BILIBILI_UP_MD.exists():
-    md_text = BILIBILI_UP_MD.read_text(encoding='utf-8')
-    in_ups = False
-    in_blacklist = False
-    for line in md_text.split('\n'):
-        line = line.strip()
-        if line.startswith('## 个人UP主'):
-            in_ups = True
-            in_blacklist = False
-            continue
-        if line.startswith('## up黑名单'):
-            in_ups = False
-            in_blacklist = True
-            continue
-        if line.startswith('##'):
-            in_ups = False
-            in_blacklist = False
-            continue
-        if line.startswith('|') and (in_ups or in_blacklist):
-            # Parse table row
-            parts = [p.strip() for p in line.split('|')[1:-1]]
-            if len(parts) >= 3 and parts[1] != 'UP主':
-                uid = parts[2]
-                name = parts[1]
-                if uid and uid.isdigit():
-                    if in_ups:
-                        BILIBILI_UPS.append({'uid': uid, 'name': name})
-                    elif in_blacklist:
-                        BILIBILI_BLACKLIST.append({'uid': uid, 'name': name})
-
-# Filter out blacklisted UIDs
-blacklist_uids = {u['uid'] for u in BILIBILI_BLACKLIST}
-BILIBILI_UPS = [u for u in BILIBILI_UPS if u['uid'] not in blacklist_uids]
-print(f'Bilibili: {len(BILIBILI_UPS)} UP主, {len(BILIBILI_BLACKLIST)} 黑名单')
-
-# Parse Xueqiu sections
-SECTIONS = {
-    'laodeng': [
-        'SH510050', 'SH510300', 'SH510500', 'SH518800',
-        'SH601398', 'SH601939', 'SH601288', 'SH600036',
-        'SH600519', 'SZ000858', 'SZ000568', 'SH600900', 'SH601088',
-    ],
-    'CPO': [
-        'SZ300308', 'SZ300502', 'SZ300394', 'SZ002281',
-        'SH515880', 'SH515050', 'SZ159994', 'SZ159695',
-        'SZ159507', 'SZ159511', 'SZ159583',
-    ],
-}
-
-# Parse Xiaohongshu UP list
-XIAOHONGSHU_UP_MD = ROOT / 'data' / 'xiaohongshu-finance-up.md'
-XIAOHONGSHU_UPS = []
-
-if XIAOHONGSHU_UP_MD.exists():
-    md_text = XIAOHONGSHU_UP_MD.read_text(encoding='utf-8')
-    for line in md_text.split('\n'):
-        line = line.strip()
-        if line.startswith('|'):
-            parts = [p.strip() for p in line.split('|')[1:-1]]
-            if len(parts) >= 3 and parts[0] != '博主昵称':
-                user_id = parts[1]
-                if user_id and user_id != '用户ID':
-                    XIAOHONGSHU_UPS.append({'user_id': user_id, 'nickname': parts[0]})
-
-print(f'Xiaohongshu: {len(XIAOHONGSHU_UPS)} 博主')
-
-last_request = 0.0
+from backend.repositories.comment_repository import CommentRepository
 
 
-def parse_json_stdout(stdout):
-    s = re.sub(r'^Active code page: 65001\s*\r?\n', '', stdout)
-    s = re.sub(r'^.*?CLI output:\s*', '', s, flags=re.DOTALL)
-    starts = [p for p in (s.find('['), s.find('{')) if p >= 0]
-    if starts:
-        s = s[min(starts):]
+def load_up_list(file_path):
+    """加载 UP 主列表"""
+    ups = []
+    blacklist = []
+    current_list = ups
+
     try:
-        result = json.loads(s)
-        # Handle xhs format where data is in result.get('data', {}).get('items', [])
-        if isinstance(result, dict) and 'ok' in result and result.get('ok'):
-            if 'data' in result and 'items' in result['data']:
-                return result['data']['items']
-            elif 'data' in result and 'comments' in result['data']:
-                return result['data']['comments']
-            elif 'data' in result:
-                return result['data']
-        return result
-    except Exception:
-        # Try to find JSON object/array with regex
-        m = re.search(r'(\[[\s\S]*\]|\{[\s\S]*\})', s)
-        if m:
-            result = json.loads(m.group(1))
-            if isinstance(result, dict) and 'ok' in result and result.get('ok'):
-                if 'data' in result and 'items' in result['data']:
-                    return result['data']['items']
-                elif 'data' in result and 'comments' in result['data']:
-                    return result['data']['comments']
-                elif 'data' in result:
-                    return result['data']
-            return result
-        raise
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+
+                if line.lower().startswith('blacklist') or line.lower().startswith('黑名单'):
+                    current_list = blacklist
+                    continue
+
+                # 解析 UP 主信息
+                parts = [p.strip() for p in line.split('|')]
+                if len(parts) >= 2:
+                    up_info = {
+                        'uid': parts[0],
+                        'name': parts[1]
+                    }
+                    if len(parts) > 2:
+                        up_info['extra'] = parts[2:]
+                    current_list.append(up_info)
+    except FileNotFoundError:
+        print(f"警告: 文件 {file_path} 未找到")
+
+    return ups, blacklist
 
 
-def run_cmd(cmd, label, min_interval=1.1):
-    global last_request
-    wait = max(0, min_interval - (time.monotonic() - last_request))
-    if wait:
-        time.sleep(wait)
-    print(f'[{label}] {cmd}', flush=True)
-    last_request = time.monotonic()
-    p = subprocess.run(
-        cmd, shell=True, text=True, encoding='utf-8', errors='replace',
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=300,
-    )
-    if p.stderr.strip():
-        print(f'[{label}] stderr: {p.stderr.strip()[:400]}', flush=True)
-    if p.returncode != 0:
-        return None, {'returncode': p.returncode, 'stderr': p.stderr}
+def load_sections_list(file_path):
+    """加载板块股票列表"""
+    symbols = []
     try:
-        return parse_json_stdout(p.stdout), None
-    except Exception as e:
-        return None, {'json_error': str(e), 'stdout': p.stdout[:500]}
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                # 假设每行是股票代码
+                symbols.append(line)
+    except FileNotFoundError:
+        print(f"警告: 文件 {file_path} 未找到")
+
+    return symbols
 
 
-def save_state(state, path):
-    path.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding='utf-8')
+def run_opencli_command(cmd_args, max_retries=3):
+    """运行 opencli 命令，带重试机制"""
+    for attempt in range(max_retries):
+        try:
+            result = subprocess.run(
+                cmd_args,
+                capture_output=True,
+                text=True,
+                timeout=120
+            )
+            if result.returncode == 0:
+                return json.loads(result.stdout) if result.stdout else []
+            else:
+                print(f"命令失败 (尝试 {attempt + 1}/{max_retries}): {result.stderr}")
+        except Exception as e:
+            print(f"命令异常 (尝试 {attempt + 1}/{max_retries}): {e}")
+
+        if attempt < max_retries - 1:
+            time.sleep(2)  # 重试前等待
+
+    return None
 
 
-# ------------------------------
-# Bilibili collection
-# ------------------------------
-print('\n--- Starting Bilibili collection ---')
-bili_state = {
-    'target_date': TODAY,
-    'platform': 'B站',
-    'sources': ['data/bilibili-finance-up.md'],
-    'ups': BILIBILI_UPS,
-    'blacklist': BILIBILI_BLACKLIST,
-    'videos': [],
-    'comments': [],
-    'errors': [],
-    'request_policy': 'sequential opencli bilibili requests; >=1.1s between requests',
-}
+def collect_bilibili(target_date, ups, blacklist, output_dir, intermediate_dir):
+    """收集 B站 评论"""
+    print("\n===== 开始收集 B站 评论 =====")
 
-BILI_PARTIAL = INTERMEDIATE_DIR / f'bilibili_{TODAY}.partial.json'
-BILI_OUT = COMMENTS_DIR / f'bilibili_{TODAY}.json'
+    platform = 'bilibili'
+    data = {
+        'target_date': target_date,
+        'platform': platform,
+        'sources': ['data/bilibili-finance-up.md'],
+        'ups': ups,
+        'blacklist': blacklist,
+        'videos': [],
+        'comments': []
+    }
 
-for i, up in enumerate(BILIBILI_UPS):
-    label = f'Bilibili {i+1}/{len(BILIBILI_UPS)} {up["name"]}'
-    # Get UP's recent videos
-    videos, err = run_cmd(f'opencli bilibili user-videos {up["uid"]} -f json --window background --site-session persistent', label + ' videos')
-    if err:
-        bili_state['errors'].append({'up': up, 'type': 'user-videos', 'error': err})
-        save_state(bili_state, BILI_PARTIAL)
-        continue
-    if not isinstance(videos, list):
-        videos = []
+    # 黑名单 UID 集合
+    blacklist_uids = set(u['uid'] for u in blacklist)
 
-    # Add videos with up info
-    for video in videos:
-        video['_up'] = up
-    bili_state['videos'].extend(videos)
-
-    # Get comments for each video (only recent 3 videos to avoid being blocked)
-    for video in videos[:3]:
-        url = video.get('url', '')
-        # Extract BV id from URL
-        bv_match = re.search(r'/video/(BV[^/]+)', url)
-        if not bv_match:
+    for up in ups:
+        if up['uid'] in blacklist_uids:
+            print(f"跳过黑名单 UP 主: {up['name']}")
             continue
-        bvid = bv_match.group(1)
 
-        comments, err = run_cmd(f'opencli bilibili comments {bvid} -f json --window background --site-session persistent', label + f' comments {bvid}')
-        if err:
-            bili_state['errors'].append({'up': up, 'video': bvid, 'type': 'comments', 'error': err})
+        print(f"\n处理 UP 主: {up['name']} (UID: {up['uid']})")
+
+        # 获取 UP 主的视频列表
+        videos_result = run_opencli_command([
+            'opencli', 'bilibili', 'user-videos', up['uid'],
+            '--limit', '10',
+            '-f', 'json'
+        ])
+
+        time.sleep(1.5)  # 请求间隔
+
+        if not videos_result:
             continue
-        if isinstance(comments, list):
-            for c in comments:
-                c['_up'] = up
-                c['_video'] = video
-                c['_video_bvid'] = bvid
-                bili_state['comments'].append(c)
-    save_state(bili_state, BILI_PARTIAL)
 
-save_state(bili_state, BILI_OUT)
-print(f'Wrote {BILI_OUT}')
+        for video in videos_result:
+            video_info = {
+                'rank': video.get('rank'),
+                'title': video.get('title'),
+                'plays': video.get('plays'),
+                'likes': video.get('likes'),
+                'date': video.get('date'),
+                'url': video.get('url'),
+                '_up': {'uid': up['uid'], 'name': up['name']}
+            }
+            data['videos'].append(video_info)
+
+            # 从 URL 中提取 bvid
+            url = video.get('url', '')
+            bvid = None
+            if '/video/' in url:
+                bvid = url.split('/video/')[-1].split('?')[0]
+
+            if bvid:
+                print(f"  收集视频评论: {video.get('title', '')[:30]}... (BV: {bvid})")
+
+                # 获取评论
+                comments_result = run_opencli_command([
+                    'opencli', 'bilibili', 'comments', bvid,
+                    '--limit', '50',
+                    '-f', 'json'
+                ])
+
+                time.sleep(1.5)  # 请求间隔
+
+                if comments_result:
+                    for comment in comments_result:
+                        comment_data = {
+                            'video_bvid': bvid,
+                            'video_title': video.get('title'),
+                            'author': comment.get('author'),
+                            'text': comment.get('text'),
+                            'likes': comment.get('likes', 0),
+                            'replies': comment.get('replies', 0),
+                            'time': comment.get('time'),
+                            '_up': {'uid': up['uid'], 'name': up['name']}
+                        }
+                        data['comments'].append(comment_data)
+
+    # 保存中间文件
+    intermediate_file = intermediate_dir / f"{platform}_{target_date}.partial.json"
+    with open(intermediate_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"\n中间文件已保存: {intermediate_file}")
+
+    # 保存最终文件
+    output_file = output_dir / f"{platform}_{target_date}.json"
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"最终文件已保存: {output_file}")
+
+    return data
 
 
-# ------------------------------
-# Xueqiu collection
-# ------------------------------
-print('\n--- Starting Xueqiu collection ---')
-xueqiu_state = {
-    'target_date': TODAY,
-    'platform': '雪球',
-    'sources': ['data/sections/laodeng.md', 'data/sections/CPO.md'],
-    'sections': SECTIONS,
-    'comments': {},
-    'errors': [],
-    'request_policy': 'sequential opencli xueqiu requests; >=1.25s between requests',
-}
+def collect_xiaohongshu(target_date, ups, output_dir, intermediate_dir):
+    """收集小红书评论"""
+    print("\n===== 开始收集 小红书 评论 =====")
 
-XUEQIU_PARTIAL = INTERMEDIATE_DIR / f'xueqiu_{TODAY}.partial.json'
-XUEQIU_OUT = COMMENTS_DIR / f'xueqiu_{TODAY}.json'
+    platform = 'xiaohongshu'
+    data = {
+        'target_date': target_date,
+        'platform': platform,
+        'sources': ['data/xiaohongshu-finance-up.md'],
+        'ups': ups,
+        'notes': [],
+        'comments': []
+    }
 
-total = sum(len(v) for v in SECTIONS.values())
-done = 0
-for section, symbols in SECTIONS.items():
-    xueqiu_state['comments'][section] = {}
-    for symbol in symbols:
-        done += 1
-        label = f'Xueqiu {done}/{total} {section}/{symbol}'
-        comments, err = run_cmd(f'opencli xueqiu comments {symbol} -f json --window background --site-session persistent', label, min_interval=1.25)
-        if err:
-            xueqiu_state['errors'].append({'section': section, 'symbol': symbol, 'error': err})
-            xueqiu_state['comments'][section][symbol] = []
+    for up in ups:
+        print(f"\n处理博主: {up.get('name', 'Unknown')} (ID: {up.get('uid', 'N/A')})")
+
+        # 获取博主的笔记列表
+        user_id = up.get('uid', '')
+        if user_id:
+            notes_result = run_opencli_command([
+                'opencli', 'xiaohongshu', 'user', user_id,
+                '--limit', '10',
+                '-f', 'json'
+            ])
+
+            time.sleep(1.5)  # 请求间隔
+
+            if notes_result:
+                for note in notes_result:
+                    note_info = {
+                        'id': note.get('id'),
+                        'title': note.get('title'),
+                        'type': note.get('type'),
+                        'likes': note.get('likes'),
+                        'url': note.get('url'),
+                        '_author': up
+                    }
+                    data['notes'].append(note_info)
+
+                    note_url = note.get('url')
+                    if note_url:
+                        print(f"  收集笔记评论: {note.get('title', '')[:30]}...")
+
+                        # 获取评论
+                        comments_result = run_opencli_command([
+                            'opencli', 'xiaohongshu', 'comments', note_url,
+                            '--limit', '50',
+                            '--with-replies', 'true',
+                            '-f', 'json'
+                        ])
+
+                        time.sleep(1.5)  # 请求间隔
+
+                        if comments_result:
+                            for comment in comments_result:
+                                comment_data = {
+                                    'note_id': note.get('id'),
+                                    'note_title': note.get('title'),
+                                    'note_url': note_url,
+                                    'author': comment.get('author'),
+                                    'text': comment.get('text'),
+                                    'likes': comment.get('likes', 0),
+                                    'time': comment.get('time'),
+                                    'is_reply': comment.get('is_reply', False),
+                                    'reply_to': comment.get('reply_to'),
+                                    '_author': up
+                                }
+                                data['comments'].append(comment_data)
+
+    # 保存中间文件
+    intermediate_file = intermediate_dir / f"{platform}_{target_date}.partial.json"
+    with open(intermediate_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"\n中间文件已保存: {intermediate_file}")
+
+    # 保存最终文件
+    output_file = output_dir / f"{platform}_{target_date}.json"
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"最终文件已保存: {output_file}")
+
+    return data
+
+
+def collect_xueqiu(target_date, up_symbols, section_symbols, output_dir, intermediate_dir):
+    """收集雪球评论"""
+    print("\n===== 开始收集 雪球 评论 =====")
+
+    platform = 'xueqiu'
+
+    # 合并所有股票代码
+    all_symbols = list(set(up_symbols + section_symbols))
+
+    data = {
+        'target_date': target_date,
+        'platform': platform,
+        'sources': [
+            'data/xueqiu-finance-up.md',
+            'data/sections/CPO.md',
+            'data/sections/laodeng.md'
+        ],
+        'symbols': all_symbols,
+        'stocks': [],
+        'comments': []
+    }
+
+    for symbol in all_symbols:
+        print(f"\n处理股票: {symbol}")
+
+        # 获取股票信息
+        stock_result = run_opencli_command([
+            'opencli', 'xueqiu', 'stock', symbol,
+            '-f', 'json'
+        ])
+
+        time.sleep(1.5)  # 请求间隔
+
+        if stock_result:
+            stock_info = {}
+            for item in stock_result:
+                stock_info[item.get('field', '')] = item.get('value')
+            data['stocks'].append({
+                'symbol': symbol,
+                'info': stock_info
+            })
+
+        # 获取股票评论
+        print(f"  收集讨论...")
+        comments_result = run_opencli_command([
+            'opencli', 'xueqiu', 'comments', symbol,
+            '--limit', '50',
+            '-f', 'json'
+        ])
+
+        time.sleep(1.5)  # 请求间隔
+
+        if comments_result:
+            for comment in comments_result:
+                comment_data = {
+                    'symbol': symbol,
+                    'author': comment.get('author'),
+                    'text': comment.get('text'),
+                    'likes': comment.get('likes', 0),
+                    'replies': comment.get('replies', 0),
+                    'retweets': comment.get('retweets', 0),
+                    'created_at': comment.get('created_at'),
+                    'url': comment.get('url')
+                }
+                data['comments'].append(comment_data)
+
+    # 保存中间文件
+    intermediate_file = intermediate_dir / f"{platform}_{target_date}.partial.json"
+    with open(intermediate_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"\n中间文件已保存: {intermediate_file}")
+
+    # 保存最终文件
+    output_file = output_dir / f"{platform}_{target_date}.json"
+    with open(output_file, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    print(f"最终文件已保存: {output_file}")
+
+    return data
+
+
+def import_to_database(platform_data, platform_name):
+    """导入数据到数据库"""
+    print(f"\n===== 导入 {platform_name} 数据到数据库 =====")
+
+    repo = CommentRepository()
+    imported_count = 0
+    skipped_count = 0
+
+    comments = platform_data.get('comments', [])
+    print(f"共有 {len(comments)} 条评论待导入")
+
+    for comment in comments:
+        try:
+            # 构建评论数据
+            comment_data = {
+                'platform': platform_name,
+                'content': comment.get('text', ''),
+                'author_name': comment.get('author', ''),
+                'like_count': comment.get('likes', 0),
+            }
+
+            # 添加额外信息到 metadata 或内容中
+            extra_info = []
+            if 'video_title' in comment:
+                extra_info.append(f"视频: {comment['video_title']}")
+            if 'note_title' in comment:
+                extra_info.append(f"笔记: {comment['note_title']}")
+            if 'symbol' in comment:
+                extra_info.append(f"股票: {comment['symbol']}")
+
+            if extra_info:
+                comment_data['content'] = f"[{', '.join(extra_info)}]\n{comment_data['content']}"
+
+            # 添加时间信息
+            time_str = comment.get('time') or comment.get('created_at')
+            if time_str:
+                comment_data['created_at'] = time_str
+
+            # 添加 UP 主信息
+            if '_up' in comment:
+                comment_data['up_master'] = comment['_up'].get('name', '')
+            elif '_author' in comment:
+                comment_data['up_master'] = comment['_author'].get('name', '')
+
+            # 导入数据库
+            repo.insert(comment_data)
+            imported_count += 1
+
+        except Exception as e:
+            print(f"导入评论时出错: {e}")
+            skipped_count += 1
+
+    print(f"导入完成: 成功 {imported_count} 条, 跳过 {skipped_count} 条")
+    return imported_count, skipped_count
+
+
+def main():
+    parser = argparse.ArgumentParser(description='收集三个平台的财经评论')
+    parser.add_argument('--date', help='目标日期 (YYYY-MM-DD), 默认为今天')
+    parser.add_argument('--platform', choices=['bilibili', 'xiaohongshu', 'xueqiu', 'all'],
+                        default='all', help='指定平台 (默认: 全部)')
+    parser.add_argument('--import-only', action='store_true',
+                        help='仅从现有 JSON 文件导入数据库')
+    args = parser.parse_args()
+
+    # 设置目标日期
+    if args.date:
+        target_date = args.date
+    else:
+        target_date = datetime.now().strftime('%Y-%m-%d')
+
+    print(f"目标日期: {target_date}")
+
+    # 确保输出目录存在
+    output_dir = project_root / 'comments'
+    intermediate_dir = project_root / 'intermediate'
+    output_dir.mkdir(exist_ok=True)
+    intermediate_dir.mkdir(exist_ok=True)
+
+    # 加载 UP 主列表
+    bilibili_ups, bilibili_blacklist = load_up_list(project_root / 'data' / 'bilibili-finance-up.md')
+    xiaohongshu_ups, _ = load_up_list(project_root / 'data' / 'xiaohongshu-finance-up.md')
+    xueqiu_ups, _ = load_up_list(project_root / 'data' / 'xueqiu-finance-up.md')
+
+    # 加载板块股票列表
+    cpo_symbols = load_sections_list(project_root / 'data' / 'sections' / 'CPO.md')
+    laodeng_symbols = load_sections_list(project_root / 'data' / 'sections' / 'laodeng.md')
+
+    # 提取雪球股票代码 (假设 UP 主列表中的 uid 是股票代码)
+    xueqiu_symbols = [u['uid'] for u in xueqiu_ups]
+
+    all_data = {}
+
+    if args.import_only:
+        # 仅导入模式
+        print("\n===== 仅导入模式 =====")
+        platforms_to_import = []
+        if args.platform == 'all':
+            platforms_to_import = ['bilibili', 'xiaohongshu', 'xueqiu']
         else:
-            xueqiu_state['comments'][section][symbol] = comments if isinstance(comments, list) else []
-        save_state(xueqiu_state, XUEQIU_PARTIAL)
+            platforms_to_import = [args.platform]
 
-save_state(xueqiu_state, XUEQIU_OUT)
-print(f'Wrote {XUEQIU_OUT}')
+        for platform in platforms_to_import:
+            json_file = output_dir / f"{platform}_{target_date}.json"
+            if json_file.exists():
+                print(f"\n加载 {platform} 数据: {json_file}")
+                with open(json_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                import_to_database(data, platform)
+            else:
+                print(f"文件不存在: {json_file}")
 
+        return
 
-# ------------------------------
-# Xiaohongshu collection
-# ------------------------------
-print('\n--- Starting Xiaohongshu collection ---')
-xhs_state = {
-    'target_date': TODAY,
-    'platform': '小红书',
-    'sources': ['data/xiaohongshu-finance-up.md'],
-    'search_keywords': ['股票', 'A股', '基金', '投资', '理财', '财经', '炒股'],
-    'notes': [],
-    'comments': [],
-    'errors': [],
-    'request_policy': 'sequential xhs search requests; >=1.1s between requests',
-}
+    # 收集数据
+    if args.platform == 'all' or args.platform == 'bilibili':
+        bilibili_data = collect_bilibili(
+            target_date, bilibili_ups, bilibili_blacklist,
+            output_dir, intermediate_dir
+        )
+        all_data['bilibili'] = bilibili_data
+        import_to_database(bilibili_data, 'bilibili')
 
-XHS_PARTIAL = INTERMEDIATE_DIR / f'xiaohongshu_{TODAY}.partial.json'
-XHS_OUT = COMMENTS_DIR / f'xiaohongshu_{TODAY}.json'
+    if args.platform == 'all' or args.platform == 'xiaohongshu':
+        xiaohongshu_data = collect_xiaohongshu(
+            target_date, xiaohongshu_ups,
+            output_dir, intermediate_dir
+        )
+        all_data['xiaohongshu'] = xiaohongshu_data
+        import_to_database(xiaohongshu_data, 'xiaohongshu')
 
-for keyword in xhs_state['search_keywords']:
-    label = f'Xiaohongshu {keyword}'
-    notes, err = run_cmd(f'xhs search "{keyword}" --json', label)
-    if err:
-        xhs_state['errors'].append({'keyword': keyword, 'type': 'search', 'error': err})
-        save_state(xhs_state, XHS_PARTIAL)
-        continue
+    if args.platform == 'all' or args.platform == 'xueqiu':
+        xueqiu_data = collect_xueqiu(
+            target_date, xueqiu_symbols, cpo_symbols + laodeng_symbols,
+            output_dir, intermediate_dir
+        )
+        all_data['xueqiu'] = xueqiu_data
+        import_to_database(xueqiu_data, 'xueqiu')
 
-    if isinstance(notes, list):
-        for note in notes:
-            note['_keyword'] = keyword
-        xhs_state['notes'].extend(notes)
-
-    save_state(xhs_state, XHS_PARTIAL)
-
-    # Now try to get comments for up to 3 notes from this search
-    notes_to_process = notes[:3] if isinstance(notes, list) else []
-    for i, note in enumerate(notes_to_process):
-        note_id = note.get('note_id', '') or note.get('id', '')
-        if not note_id:
-            # Try to extract from url
-            url = note.get('url', '')
-            if '/discovery/item/' in url:
-                note_id = url.split('/discovery/item/')[-1].split('?')[0]
-
-        if not note_id:
-            continue
-
-        comments, err2 = run_cmd(f'xhs comments {note_id} --json', f'{label} comments {i+1}')
-        if err2:
-            xhs_state['errors'].append({'keyword': keyword, 'note_id': note_id, 'type': 'comments', 'error': err2})
-            continue
-
-        if isinstance(comments, list):
-            for comment in comments:
-                comment['_keyword'] = keyword
-                comment['_note_id'] = note_id
-                comment['_note'] = note
-            xhs_state['comments'].extend(comments)
-
-        save_state(xhs_state, XHS_PARTIAL)
-
-save_state(xhs_state, XHS_OUT)
-print(f'Wrote {XHS_OUT}')
+    # 总结
+    print("\n" + "=" * 50)
+    print("收集完成总结:")
+    for platform, data in all_data.items():
+        print(f"  {platform}: {len(data.get('comments', []))} 条评论")
+    print("=" * 50)
 
 
-print('\n--- Collection complete ---')
-print(f'Bilibili: {len(bili_state["comments"])} comments from {len(bili_state["videos"])} videos')
-xueqiu_count = sum(len(cs) for section in xueqiu_state['comments'].values() for cs in section.values())
-print(f'Xueqiu: {xueqiu_count} comments')
-print(f'Xiaohongshu: {len(xhs_state["comments"])} comments from {len(xhs_state["notes"])} notes')
-
+if __name__ == '__main__':
+    main()

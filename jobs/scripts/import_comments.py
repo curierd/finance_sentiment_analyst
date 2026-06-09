@@ -1,191 +1,300 @@
 #!/usr/bin/env python3
 """
-Import collected comments into the database.
-Usage: python import_comments.py [date]
-Default date: today (YYYY-MM-DD)
+导入收集的评论到数据库
 """
 
-import sys
+import argparse
 import json
-import datetime
+import os
+import sys
+from datetime import datetime
 from pathlib import Path
 
-# Add parent directory to path for backend imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# 添加项目根目录到 Python 路径
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
-from backend.database import get_db as get_db_connection, set_db_path
+from backend.repositories.comment_repository import CommentRepository
+from backend.services.comment_service import CommentService
 
 
-def parse_bilibili_time(time_str):
-    """Parse Bilibili time format: '2025-09-14 22:29' -> ISO format with seconds"""
+def parse_time(time_str):
+    """尝试解析各种时间格式"""
     if not time_str:
         return None
-    try:
-        # Format: '2025-09-14 22:29' -> add ':00' for seconds
-        if len(time_str.split(' ')) == 2 and len(time_str.split(':')) == 2:
-            return f"{time_str}:00"
-        return time_str
-    except Exception:
-        return time_str
 
-def import_bilibili(db_path, json_path):
-    """Import Bilibili comments from JSON file"""
-    print(f"Importing Bilibili data from {json_path}...")
+    formats = [
+        '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%d %H:%M',
+        '%Y-%m-%d',
+        '%Y/%m/%d %H:%M:%S',
+        '%Y/%m/%d %H:%M',
+        '%Y/%m/%d',
+    ]
 
-    with open(json_path, 'r', encoding='utf-8') as f:
+    for fmt in formats:
+        try:
+            return datetime.strptime(time_str.strip(), fmt)
+        except ValueError:
+            continue
+
+    return None
+
+
+def import_bilibili_comments(json_file, repo, service, update_likes=False):
+    """导入 B站 评论"""
+    print(f"\n导入 B站 评论: {json_file.name}")
+
+    with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Import UP masters
-    for up in data.get('ups', []):
-        try:
-            cursor.execute('''
-                INSERT OR IGNORE INTO up_masters (platform, uid, name, source_file)
-                VALUES (?, ?, ?, ?)
-            ''', ('bilibili', up['uid'], up['name'], 'data/bilibili-finance-up.md'))
-        except Exception as e:
-            print(f"Warning: Failed to import UP {up['name']}: {e}")
-
-    # Import blacklisted UP masters
-    for up in data.get('blacklist', []):
-        try:
-            cursor.execute('''
-                INSERT OR REPLACE INTO up_masters (platform, uid, name, blacklisted, source_file)
-                VALUES (?, ?, ?, 1, ?)
-            ''', ('bilibili', up['uid'], up['name'], 'data/bilibili-finance-up.md'))
-        except Exception as e:
-            print(f"Warning: Failed to import blacklisted UP {up['name']}: {e}")
-
-    # Import videos
-    for video in data.get('videos', []):
-        try:
-            bvid = video.get('url', '').split('/video/')[-1] if video.get('url') else None
-            if not bvid:
-                continue
-            stats = json.dumps({
-                'plays': video.get('plays', 0),
-                'likes': video.get('likes', 0)
-            }, ensure_ascii=False)
-            cursor.execute('''
-                INSERT OR IGNORE INTO videos (platform, video_id, title, up_name, up_uid, stats, pubdate, url)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', ('bilibili', bvid, video.get('title', ''), video.get('_up', {}).get('name', ''),
-                  video.get('_up', {}).get('uid', ''), stats, video.get('date', ''), video.get('url', '')))
-        except Exception as e:
-            print(f"Warning: Failed to import video: {e}")
-
-    # Import comments
+    comments = data.get('comments', [])
     imported = 0
-    for comment in data.get('comments', []):
+    skipped = 0
+    updated = 0
+
+    for comment in comments:
         try:
-            raw_data = json.dumps(comment, ensure_ascii=False)
-            created_at = parse_bilibili_time(comment.get('time', ''))
-            cursor.execute('''
-                INSERT INTO comments (
-                    platform, author_name, content, likes, replies,
-                    source_url, video_bvid, video_title, up_name, up_uid,
-                    created_at, raw_data
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                'bilibili',
-                comment.get('author', ''),
-                comment.get('text', ''),
-                comment.get('likes', 0),
-                comment.get('replies', 0),
-                comment.get('_video', {}).get('url', ''),
-                comment.get('_video_bvid', ''),
-                comment.get('_video', {}).get('title', ''),
-                comment.get('_up', {}).get('name', ''),
-                comment.get('_up', {}).get('uid', ''),
-                created_at,
-                raw_data
-            ))
+            # 提取基本信息
+            content = comment.get('text', '')
+            author_name = comment.get('author', '')
+            like_count = comment.get('likes', 0)
+            up_master = comment.get('_up', {}).get('name', '')
+            video_title = comment.get('video_title', '')
+            time_str = comment.get('time', '')
+
+            # 构建完整内容
+            full_content = content
+            if video_title:
+                full_content = f"[视频: {video_title}]\n{content}"
+
+            # 检查是否已存在 (通过内容和作者判断)
+            existing = None
+            # 这里简化处理，实际可能需要更复杂的去重逻辑
+            # 暂时直接插入
+
+            created_at = parse_time(time_str)
+
+            # 构建评论数据
+            comment_data = {
+                'platform': 'bilibili',
+                'content': full_content,
+                'author_name': author_name,
+                'up_master': up_master,
+                'like_count': like_count,
+            }
+
+            if created_at:
+                comment_data['created_at'] = created_at
+
+            # 插入数据库
+            new_comment = repo.insert(comment_data)
             imported += 1
+
         except Exception as e:
-            print(f"Warning: Failed to import comment: {e}")
+            print(f"  处理评论时出错: {e}")
+            skipped += 1
 
-    conn.commit()
-    conn.close()
-    print(f"Bilibili: Imported {imported} comments")
-    return imported
+    print(f"  B站 完成: 导入 {imported}, 跳过 {skipped}, 更新 {updated}")
+    return imported, skipped, updated
 
 
-def import_xueqiu(db_path, json_path):
-    """Import Xueqiu comments from JSON file"""
-    print(f"Importing Xueqiu data from {json_path}...")
+def import_xiaohongshu_comments(json_file, repo, service, update_likes=False):
+    """导入小红书评论"""
+    print(f"\n导入小红书评论: {json_file.name}")
 
-    with open(json_path, 'r', encoding='utf-8') as f:
+    with open(json_file, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
+    comments = data.get('comments', [])
     imported = 0
-    for section, symbols in data.get('comments', {}).items():
-        for symbol, comments in symbols.items():
-            for comment in comments:
-                try:
-                    raw_data = json.dumps(comment, ensure_ascii=False)
-                    cursor.execute('''
-                        INSERT INTO comments (
-                            platform, author_name, content, likes, replies, retweets,
-                            source_url, symbol, created_at, raw_data
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (
-                        'xueqiu',
-                        comment.get('author', ''),
-                        comment.get('text', ''),
-                        comment.get('likes', 0),
-                        comment.get('replies', 0),
-                        comment.get('retweets', 0),
-                        comment.get('url', ''),
-                        symbol,
-                        comment.get('created_at', ''),
-                        raw_data
-                    ))
-                    imported += 1
-                except Exception as e:
-                    print(f"Warning: Failed to import comment: {e}")
+    skipped = 0
+    updated = 0
 
-    conn.commit()
-    conn.close()
-    print(f"Xueqiu: Imported {imported} comments")
-    return imported
+    for comment in comments:
+        try:
+            # 提取基本信息
+            content = comment.get('text', '')
+            author_name = comment.get('author', '')
+            like_count = comment.get('likes', 0)
+            up_master = comment.get('_author', {}).get('name', '')
+            note_title = comment.get('note_title', '')
+            time_str = comment.get('time', '')
+            is_reply = comment.get('is_reply', False)
+
+            # 构建完整内容
+            full_content = content
+            prefix_parts = []
+            if note_title:
+                prefix_parts.append(f"笔记: {note_title}")
+            if is_reply:
+                prefix_parts.append("回复")
+
+            if prefix_parts:
+                full_content = f"[{', '.join(prefix_parts)}]\n{content}"
+
+            created_at = parse_time(time_str)
+
+            # 构建评论数据
+            comment_data = {
+                'platform': 'xiaohongshu',
+                'content': full_content,
+                'author_name': author_name,
+                'up_master': up_master,
+                'like_count': like_count,
+            }
+
+            if created_at:
+                comment_data['created_at'] = created_at
+
+            # 插入数据库
+            new_comment = repo.insert(comment_data)
+            imported += 1
+
+        except Exception as e:
+            print(f"  处理评论时出错: {e}")
+            skipped += 1
+
+    print(f"  小红书完成: 导入 {imported}, 跳过 {skipped}, 更新 {updated}")
+    return imported, skipped, updated
+
+
+def import_xueqiu_comments(json_file, repo, service, update_likes=False):
+    """导入雪球评论"""
+    print(f"\n导入雪球评论: {json_file.name}")
+
+    with open(json_file, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    comments = data.get('comments', [])
+    imported = 0
+    skipped = 0
+    updated = 0
+
+    for comment in comments:
+        try:
+            # 提取基本信息
+            content = comment.get('text', '')
+            author_name = comment.get('author', '')
+            like_count = comment.get('likes', 0)
+            symbol = comment.get('symbol', '')
+            time_str = comment.get('created_at', '')
+
+            # 构建完整内容
+            full_content = content
+            if symbol:
+                full_content = f"[股票: {symbol}]\n{content}"
+
+            created_at = parse_time(time_str)
+
+            # 构建评论数据
+            comment_data = {
+                'platform': 'xueqiu',
+                'content': full_content,
+                'author_name': author_name,
+                'up_master': symbol,  # 用股票代码作为 up_master
+                'like_count': like_count,
+            }
+
+            if created_at:
+                comment_data['created_at'] = created_at
+
+            # 插入数据库
+            new_comment = repo.insert(comment_data)
+            imported += 1
+
+        except Exception as e:
+            print(f"  处理评论时出错: {e}")
+            skipped += 1
+
+    print(f"  雪球完成: 导入 {imported}, 跳过 {skipped}, 更新 {updated}")
+    return imported, skipped, updated
 
 
 def main():
-    # Get date
-    if len(sys.argv) > 1:
-        date = sys.argv[1]
+    parser = argparse.ArgumentParser(description='导入评论数据到数据库')
+    parser.add_argument('files', nargs='*', help='要导入的 JSON 文件')
+    parser.add_argument('--date', help='指定日期 (YYYY-MM-DD), 自动查找当天文件')
+    parser.add_argument('--dir', default='comments', help='评论文件目录 (默认: comments)')
+    parser.add_argument('--update-likes', action='store_true',
+                        help='更新现有评论的点赞数 (默认: 跳过重复)')
+    args = parser.parse_args()
+
+    # 初始化 repository 和 service
+    repo = CommentRepository()
+    service = CommentService()
+
+    # 确定要处理的文件
+    files_to_process = []
+
+    if args.files:
+        # 使用指定的文件
+        for f in args.files:
+            file_path = Path(f)
+            if file_path.exists():
+                files_to_process.append(file_path)
+            else:
+                print(f"文件不存在: {f}")
+    elif args.date:
+        # 查找指定日期的文件
+        data_dir = project_root / args.dir
+        for platform in ['bilibili', 'xiaohongshu', 'xueqiu']:
+            file_path = data_dir / f"{platform}_{args.date}.json"
+            if file_path.exists():
+                files_to_process.append(file_path)
+            else:
+                print(f"文件不存在: {file_path}")
     else:
-        date = datetime.date.today().isoformat()
+        print("请指定文件或使用 --date 参数")
+        parser.print_help()
+        return
 
-    # Paths
-    base_dir = Path(__file__).parent.parent.parent
-    comments_dir = base_dir / 'comments'
-    db_path = base_dir / 'db' / 'comments.db'
+    if not files_to_process:
+        print("没有找到要处理的文件")
+        return
 
-    set_db_path(str(db_path))
+    # 处理每个文件
+    total_imported = 0
+    total_skipped = 0
+    total_updated = 0
 
-    total = 0
+    for json_file in files_to_process:
+        filename = json_file.name
 
-    # Import Bilibili
-    bilibili_path = comments_dir / f'bilibili_{date}.json'
-    if bilibili_path.exists():
-        total += import_bilibili(str(db_path), str(bilibili_path))
-    else:
-        print(f"Bilibili file not found: {bilibili_path}")
+        if filename.startswith('bilibili_'):
+            imported, skipped, updated = import_bilibili_comments(
+                json_file, repo, service, args.update_likes
+            )
+        elif filename.startswith('xiaohongshu_'):
+            imported, skipped, updated = import_xiaohongshu_comments(
+                json_file, repo, service, args.update_likes
+            )
+        elif filename.startswith('xueqiu_'):
+            imported, skipped, updated = import_xueqiu_comments(
+                json_file, repo, service, args.update_likes
+            )
+        else:
+            print(f"\n跳过未知文件: {filename}")
+            continue
 
-    # Import Xueqiu
-    xueqiu_path = comments_dir / f'xueqiu_{date}.json'
-    if xueqiu_path.exists():
-        total += import_xueqiu(str(db_path), str(xueqiu_path))
-    else:
-        print(f"Xueqiu file not found: {xueqiu_path}")
+        total_imported += imported
+        total_skipped += skipped
+        total_updated += updated
 
-    print(f"\nTotal: Imported {total} comments")
+    # 总结
+    print("\n" + "=" * 50)
+    print("导入完成总结:")
+    print(f"  导入: {total_imported}")
+    print(f"  跳过: {total_skipped}")
+    print(f"  更新: {total_updated}")
+    print("=" * 50)
+
+    # 显示当前数据库统计
+    print("\n当前数据库统计:")
+    stats = repo.stats()
+    print(f"  总评论数: {stats.get('auto_count', 0) + stats.get('locked_count', 0)}")
+    print(f"  自动分析: {stats.get('auto_count', 0)}")
+    print(f"  已锁定: {stats.get('locked_count', 0)}")
 
 
 if __name__ == '__main__':

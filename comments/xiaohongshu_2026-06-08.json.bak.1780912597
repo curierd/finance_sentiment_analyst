@@ -1,0 +1,8 @@
+{
+  "target_date": "2026-06-08",
+  "platform": "小红书",
+  "sources": [
+    "/home/rjh/finance_sentiment_analyst/jobs/xiaohongshu_comments_collector/xiaohongshu-finance-up.md"
+  ],
+  "notes": []
+}
