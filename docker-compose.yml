@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: finance-sentiment:latest
+    container_name: finance_sentiment
+    environment:
+      # 数据库适配器
+      DB_DRIVER: sqlite
+      DB_DSN: "file:/app/data/comments.db?mode=rwc&cache=shared&timeout=30"
+
+      # 上传目录
+      UPLOAD_DIR: /app/uploads
+      IMAGE_URL_PREFIX: /uploads
+
+    volumes:
+      # 1) SQLite 数据文件持久化（读写）
+      - ./data/sqlite:/app/data
+
+      # 2) 图片持久化（读写）
+      - ./data/uploads:/app/uploads
+
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M

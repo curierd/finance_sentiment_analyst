@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+*.egg
+
+# Virtual env
+venv/
+.env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Tests
+tests/
+
+# Intermediate / temp data
+intermediate/
+*.partial.json
+*.tmp
+
+# WorkBuddy
+.workbuddy/
+.claude/
+AGENTS.md
+CLAUDE.md
+BOOTSTRAP.md
+SOUL.md
+IDENTITY.md
+USER.md
+
+# Data directories (mounted at runtime)
+data/
+db/*.db
+db/*.db-wal
+db/*.db-shm
+comments/images/
+
+# GitHub
+.github/
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Node
+node_modules/

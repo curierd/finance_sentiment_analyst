@@ -1107,7 +1107,8 @@ function renderDetailModal(item) {
   // Image section
   var imageHtml = '';
   if (item.local_image_path) {
-    imageHtml = '<img class="detail-image" src="/' + esc(item.local_image_path) + '" alt="评论图片" onerror="this.style.display=\'none\'"/>';
+    var imgPrefix = (window.IMAGE_URL_PREFIX || '/comments') + '/';
+    imageHtml = '<img class="detail-image" src="' + imgPrefix + esc(item.local_image_path) + '" alt="评论图片" onerror="this.style.display=\'none\'"/>';
   } else if (item.original_url) {
     imageHtml = '<img class="detail-image" src="' + esc(item.original_url) + '" alt="评论图片" onerror="this.style.display=\'none\'"/>';
   }

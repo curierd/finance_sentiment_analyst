@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Comment service — business logic layer"""
+"""Comment service — business logic layer (uses adapter pattern)."""
 
-from backend.repositories.comment_repository import CommentRepository
+from backend.adapters.sqlite.comment_repository import CommentRepository
 
 
 class CommentService:

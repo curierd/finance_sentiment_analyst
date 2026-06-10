@@ -89,11 +89,12 @@ def upload_comment_image(comment_id):
     if not comment:
         return jsonify({"error": "Comment not found"}), 404
 
+    from backend.config import UPLOAD_DIR
+
     platform = comment.get("platform") or "other"
-    image_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "comments", "images", platform,
-    )
+
+    # Save under UPLOAD_DIR/images/<platform>/ (Docker-compatible)
+    image_dir = os.path.join(UPLOAD_DIR, "images", platform)
     os.makedirs(image_dir, exist_ok=True)
 
     ext = os.path.splitext(file.filename)[1] or ".jpg"
@@ -101,7 +102,8 @@ def upload_comment_image(comment_id):
     save_path = os.path.join(image_dir, filename)
     file.save(save_path)
 
-    local_image_path = os.path.relpath(save_path, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    # Store relative path (from UPLOAD_DIR): images/<platform>/comment_<id>.jpg
+    local_image_path = os.path.join("images", platform, filename)
     original_url = request.form.get("original_url")
 
     try:
