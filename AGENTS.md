@@ -31,10 +31,10 @@ jobs/
   collect_comments.md        # Multi-platform collection workflow spec
   bilibili.md                # Bilibili-only collection spec + opencli command reference
   bilibili_comments_collector/bilibili-finance-up.md  # Active B站 UP-master list (NOT under data/)
-  BERT-TextCNN /             # NOTE: dir name has trailing space; library + SKILL.md
+  BERT-TextCNN/             # Library + SKILL.md
     analyze.py               # Pure library: analyze_text/analyze_batch (no DB, no HTML; returns sentiment+score)
     SKILL.md                 # API + examples + pitfalls for the analyzer
-    tests/test_analyze.py    # 23 unit tests; run with `unittest discover -s "jobs/BERT-TextCNN /tests"`
+    tests/test_analyze.py    # 23 unit tests; run with `unittest discover -s jobs/BERT-TextCNN/tests`
   scripts/
     collect_all_platforms.py # All-platform collector (opencli), ≥1.5s sleep, --import-only mode
     import_existing_data.py  # Import comments/*.json → DB (supports --date / --all / file args)
@@ -51,7 +51,7 @@ cd frontend && pip install -r requirements.txt && python server.py
 
 # Run all tests
 python -m unittest tests.test_comment_repository tests.test_comment_service tests.test_routes -v
-python -m unittest discover -s "jobs/BERT-TextCNN /tests" -p "test_*.py" -v
+python -m unittest discover -s jobs/BERT-TextCNN/tests -p "test_*.py" -v
 
 # Install full deps (torch CPU build required by textcnn_sentiment.py)
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
@@ -84,7 +84,7 @@ python -c "from textcnn_sentiment import SentimentAnalyzer; print(SentimentAnaly
 - Repository: `test_comment_repository.py` — CRUD, filtering, pagination, stats.
 - Service: `test_comment_service.py` — validation (sentiment lock values, required content, platform enum, delete-not-found).
 - Routes: `test_routes.py` — Flask test client, HTTP status codes and JSON.
-- Analyzer: `jobs/BERT-TextCNN /tests/test_analyze.py` — pure-Python unit tests for `jobs/BERT-TextCNN /analyze.py` (no DB, loaded via `importlib.util` because the dir name has a trailing space).
+- Analyzer: `jobs/BERT-TextCNN/tests/test_analyze.py` — pure-Python unit tests for `jobs/BERT-TextCNN/analyze.py` (no DB, loaded via `importlib.util`).
 - A single test module can be run with `python -m unittest tests.test_routes -v` (don't need all three).
 
 ## Architecture notes

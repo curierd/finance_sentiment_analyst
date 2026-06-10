@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 """Unit tests for the BERT-TextCNN analyzer library.
 
-Test location: ``jobs/BERT-TextCNN /tests/test_analyze.py`` (co-located with the
-module under test). Run via ``unittest discover`` to avoid the trailing-space
-package-name issue:
+Test location: ``jobs/BERT-TextCNN/tests/test_analyze.py`` (co-located with the
+module under test). Run via ``unittest discover``:
 
-    python -m unittest discover -s "jobs/BERT-TextCNN /tests" -p "test_*.py" -v
+    python -m unittest discover -s jobs/BERT-TextCNN/tests -p "test_*.py" -v
 """
 import importlib.util
 import os
@@ -14,7 +13,7 @@ import sys
 import unittest
 
 
-# jobs/BERT-TextCNN /tests/test_analyze.py  →  repo root is 3 dirs up
+# jobs/BERT-TextCNN/tests/test_analyze.py  →  repo root is 3 dirs up
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ANALYZER_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "analyze.py"))
 sys.path.insert(0, REPO_ROOT)  # so textcnn_sentiment resolves at import time

@@ -14,7 +14,7 @@ description: 中文散户评论三分类情绪分析（正面 / 中性 / 负面�
 
 ```python
 from textcnn_sentiment import SentimentAnalyzer
-from jobs.BERT-TextCNN .analyze import analyze_text, analyze_batch, SENTIMENTS
+from jobs.BERT-TextCNN.analyze import analyze_text, analyze_batch, SENTIMENTS
 ```
 
 | 函数 | 返回 |
@@ -30,7 +30,7 @@ from jobs.BERT-TextCNN .analyze import analyze_text, analyze_batch, SENTIMENTS
 
 ```python
 import sqlite3
-from jobs.BERT-TextCNN .analyze import analyze_batch
+from jobs.BERT-TextCNN.analyze import analyze_batch
 
 records = [dict(r) for r in sqlite3.connect("db/comments.db").execute(
     "SELECT id, platform, content FROM comments WHERE platform=? LIMIT 50",
@@ -54,5 +54,4 @@ print(result["stats"])
 | 现象 | 处理 |
 |---|---|
 | `ModuleNotFoundError: No module named 'jobs'` | 在脚本顶部 `sys.path.insert(0, repo_root)` |
-| 目录名 `BERT-TextCNN ` 尾随空格导致 import 失败 | 用 `importlib.util.spec_from_file_location` 加载 |
 | 词典不命中返回 `中性` | 在 `textcnn_sentiment` 词典中补词；或切到 BERT 模型 |
