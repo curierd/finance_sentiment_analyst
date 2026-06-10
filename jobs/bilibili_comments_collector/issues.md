@@ -144,3 +144,6 @@
 ### 后续可考虑
 - 加 `--site-session ephemeral` (默认 persistent) 让命令结束后立即释放 tab lease，避免 Chrome 长期持有 bilibili tab。
 - 配合 doctor 报告的"Extension 不稳定"问题：可以加 `OPENCLI_BROWSER_CONNECT_TIMEOUT=10` 快速失败，自动 fallback 到 `bili` 兜底（`bili user-videos` 不需要浏览器）。
+- [2026-06-10 15:35:50] 采集为空: 0 个 2026-06-10 视频 (UP=18)
+- [2026-06-10 15:50:03] 采集成功: 10 视频, 230 评论
+- [2026-06-10 17:32:49] 采集成功: 12 视频, 266 评论

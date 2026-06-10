@@ -18,6 +18,7 @@ Workflow (per jobs/bilibili_comments_collector/expectation.md):
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -85,7 +86,9 @@ def parse_up_list(path):
 
 
 def run(cmd, timeout=120):
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+    env = os.environ.copy()
+    env.setdefault("OPENCLI_WINDOW", "background")
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
     return r.returncode, r.stdout, r.stderr
 
 
@@ -122,7 +125,7 @@ def fetch_videos_opencli(uid, limit=30):
     """Fallback to `opencli bilibili user-videos`."""
     rc, out, err = run(
         ["opencli", "bilibili", "user-videos", str(uid),
-         "--limit", str(limit), "--window", "background", "-f", "json"]
+         "--limit", str(limit), "-f", "json"]
     )
     if rc != 0:
         return None, {"cmd": "opencli bilibili user-videos", "rc": rc, "stderr": err.strip()[:200]}
@@ -166,7 +169,7 @@ def fetch_comments(bvid, limit=50):
     """Use the private `opencli bilibili comments-raw` adapter (returns pics[])."""
     rc, out, err = run(
         ["opencli", "bilibili", "comments-raw", bvid,
-         "--limit", str(limit), "--window", "background", "-f", "json"]
+         "--limit", str(limit), "-f", "json"]
     )
     if rc != 0:
         return None, {"cmd": "opencli bilibili comments-raw", "rc": rc, "stderr": err.strip()[:200]}

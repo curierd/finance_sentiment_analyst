@@ -1,6 +1,6 @@
 ---
 name: bilibili-comments-collector
-description: 从 B站财经 UP 主列表 (`bilibili-finance-up.md`) 抓取指定日期窗口的视频与评论，配图下载到本地，写入 `comments/bilibili_<date>.json` 并入库。`opencli bilibili` + `bili` 双路取数，`--window background` 不抢焦点。
+description: 从 B站财经 UP 主列表 (`bilibili-finance-up.md`) 抓取指定日期窗口的视频与评论，配图下载到本地，写入 `comments/bilibili_<date>.json` 并入库。`opencli bilibili` + `bili` 双路取数，`OPENCLI_WINDOW=background` 环境变量全局不抢焦点。
 ---
 
 # B 站财经 UP 评论采集器
@@ -74,7 +74,7 @@ opencli bilibili comments-raw  (含 pics[])
 ## 关键设计
 
 - **取数双路**：`opencli` 优先（`Strategy.COOKIE`，带 `date` 字段），失败时降级到 `bili`（`browser-cookie3` 读本地 Chrome cookie，无日期字段仅作兜底）
-- **`--window background`**：所有 opencli 调用都加，避免 `Strategy.COOKIE` 在拿不到 bridge 时启动/前台化 Chrome 抢焦点
+- **`OPENCLI_WINDOW=background`**：`run()` 全局注入环境变量，所有 opencli 子进程自动 background 窗口，避免 `Strategy.COOKIE` 在拿不到 bridge 时启动/前台化 Chrome 抢焦点
 - **入库去重**：`_existing_comment_ids()` 一次查 DB，命中 `(platform, comment_id)` 跳过；同批内重复即时加入集合防自冲
 - **图片下载**：`pics[]` 全量下载到 `comments/images/bilibili/<bvid>/<rpid>_<idx>.<ext>`，DB `local_image_path` 只存首张成功图，`original_url` 备份原 URL
 
@@ -93,7 +93,7 @@ opencli bilibili comments-raw  (含 pics[])
 | 当日 0 命中视频 | UP 主多为非日更；改用 `--window-days 1` 或更大窗口 |
 | 评论 `time` 全部晚于视频 `date` 一天 | opencli `user-videos` 的 `date` 字段疑似 +1 天错位（详见 `issues.md` 2026-06-10 段） |
 | 重跑导致评论重复 | 已有 `(platform, comment_id)` 去重；如需重导整批先 `DELETE FROM comments WHERE platform='bilibili' AND created_at LIKE '<date>%'` |
-| 浏览器弹出抢焦点 | 检查脚本是否带 `--window background`；新加 opencli 命令必须加 |
+| 浏览器弹出抢焦点 | 检查 `run()` 是否注入 `OPENCLI_WINDOW=background` 环境变量 |
 | `opencli bilibili comments-raw` 不在 | 私有 adapter 在 `~/.opencli/clis/bilibili/comments-raw.js`，丢失则用 `jobs/bilibili_comments_collector/issues.md` 内的源恢复 |
 
 ## 扩展点
