@@ -89,6 +89,18 @@ def run(cmd, timeout=120):
     return r.returncode, r.stdout, r.stderr
 
 
+def is_in_window(date_str, target_date_str, window_days):
+    """Return True iff date_str is within ±window_days of target_date_str."""
+    if not date_str or window_days < 0:
+        return False
+    try:
+        d = date.fromisoformat(date_str)
+        target = date.fromisoformat(target_date_str)
+    except ValueError:
+        return False
+    return abs((d - target).days) <= window_days
+
+
 def fetch_videos_bili(uid, limit=30):
     """Try `bili user-videos` first. Return (list, error_dict_or_none)."""
     rc, out, err = run(["bili", "user-videos", str(uid), "-n", str(limit), "--json"])
@@ -109,7 +121,8 @@ def fetch_videos_bili(uid, limit=30):
 def fetch_videos_opencli(uid, limit=30):
     """Fallback to `opencli bilibili user-videos`."""
     rc, out, err = run(
-        ["opencli", "bilibili", "user-videos", str(uid), "--limit", str(limit), "-f", "json"]
+        ["opencli", "bilibili", "user-videos", str(uid),
+         "--limit", str(limit), "--window", "background", "-f", "json"]
     )
     if rc != 0:
         return None, {"cmd": "opencli bilibili user-videos", "rc": rc, "stderr": err.strip()[:200]}
@@ -152,7 +165,8 @@ def normalize_video(v, up, source="opencli"):
 def fetch_comments(bvid, limit=50):
     """Use the private `opencli bilibili comments-raw` adapter (returns pics[])."""
     rc, out, err = run(
-        ["opencli", "bilibili", "comments-raw", bvid, "--limit", str(limit), "-f", "json"]
+        ["opencli", "bilibili", "comments-raw", bvid,
+         "--limit", str(limit), "--window", "background", "-f", "json"]
     )
     if rc != 0:
         return None, {"cmd": "opencli bilibili comments-raw", "rc": rc, "stderr": err.strip()[:200]}
@@ -180,17 +194,41 @@ def save_partial(data, partial_path):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def _existing_comment_ids(platform, comment_ids):
+    """Return set of comment_ids already in DB for this platform."""
+    if not comment_ids:
+        return set()
+    from backend.database import get_db
+    conn = get_db()
+    placeholders = ",".join("?" * len(comment_ids))
+    rows = conn.execute(
+        f"SELECT comment_id FROM comments "
+        f"WHERE platform = ? AND comment_id IN ({placeholders})",
+        [platform] + list(comment_ids),
+    ).fetchall()
+    conn.close()
+    return {r["comment_id"] for r in rows}
+
+
 def import_comments(comments, ups_seen, errors):
     if not comments:
         print("\n[INFO] 0 条评论, 跳过导入")
         return 0, 0
     print(f"\n[IMPORT] 导入数据库 ({len(comments)} 条评论)...")
     repo = CommentRepository()
+    candidates = [c.get("comment_id") for c in comments if c.get("comment_id")]
+    existing = _existing_comment_ids("bilibili", candidates)
+    if existing:
+        print(f"[IMPORT] 已存在 {len(existing)} 条 (按 comment_id 去重)")
     imported, skipped = 0, 0
     for c in comments:
         try:
             text = (c.get("text") or "").strip()
             if not text:
+                skipped += 1
+                continue
+            cid = c.get("comment_id")
+            if cid and cid in existing:
                 skipped += 1
                 continue
             video = c.get("_video") or {}
@@ -199,7 +237,7 @@ def import_comments(comments, ups_seen, errors):
             extra = f"[视频: {video_title}]\n" if video_title else ""
             row = {
                 "platform": "bilibili",
-                "comment_id": c.get("comment_id"),
+                "comment_id": cid,
                 "content": extra + text,
                 "author_name": c.get("author", "") or "",
                 "likes": c.get("likes", 0) or 0,
@@ -218,6 +256,8 @@ def import_comments(comments, ups_seen, errors):
                 except (ValueError, TypeError):
                     continue
             repo.insert(row)
+            if cid:
+                existing.add(cid)
             imported += 1
         except Exception as e:
             errors.append({"stage": "import", "comment": c.get("text", "")[:80], "error": str(e)})
@@ -234,6 +274,8 @@ def main():
     parser.add_argument("--video-pages", type=int, default=3,
                         help="每个 UP 主拉取的视频页数 (1页=20个)")
     parser.add_argument("--sleep", type=float, default=1.5, help="请求间隔秒数")
+    parser.add_argument("--window-days", type=int, default=0,
+                        help="日期窗口 (target ± N 天), 0=仅 target_date (默认)")
     parser.add_argument("--import-only", action="store_true",
                         help="跳过采集, 仅从已有 JSON 导入数据库")
     parser.add_argument("--no-import", action="store_true", help="采集但不入库")
@@ -263,7 +305,11 @@ def main():
         "ups_with_today_videos": [],
         "errors": [],
         "request_policy": {"sleep_seconds": args.sleep, "concurrent": False},
-        "filter": "videos where date == target_date",
+        "filter": (
+            f"videos where |date - target_date| <= {args.window_days} day(s)"
+            if args.window_days else "videos where date == target_date"
+        ),
+        "window_days": args.window_days,
     }
 
     if not args.import_only:
@@ -301,10 +347,10 @@ def main():
                     continue
                 if earliest_seen is None or nv["date"] < earliest_seen:
                     earliest_seen = nv["date"]
-                if nv["date"] == target_date:
+                if is_in_window(nv["date"], target_date, args.window_days):
                     today_videos.append(nv)
             if not today_videos:
-                msg = f"  [INFO] 当天无新视频 (最早 {earliest_seen}"
+                msg = f"  [INFO] 窗口内无新视频 (最早 {earliest_seen}"
                 if no_date_count:
                     msg += f", {no_date_count} 条无日期 ({used_source})"
                 msg += ")"

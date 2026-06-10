@@ -96,3 +96,51 @@
 - [2026-06-09 11:34:41] 采集为空: 0 个 2026-06-09 视频 (UP=18)
 - [2026-06-09 14:00:25] 采集成功: 1 视频, 30 评论
 - [2026-06-09 14:09:05] 采集成功: 12 视频, 288 评论
+- [2026-06-10 10:44:30] 采集为空: 0 个 2026-06-10 视频 (UP=18)
+- [2026-06-10 10:49:15] 采集成功: 10 视频, 227 评论
+
+## 2026-06-10 10:48 — 加 `--window-days` 窗口 + 入库去重
+
+### 改动
+- `collect_bilibili_today.py`：
+  - 新增 `--window-days N`（默认 0 = 仅 target_date，1 = ±1 天）。
+  - 新增 `is_in_window()` helper；视频过滤从 `== target_date` 改为窗口判断。
+  - `import_comments()` 改为按 `(platform, comment_id)` 去重：先查 DB 已存在的 comment_id 集合，命中即跳过；新增的也实时进集合（同一批内重复保护）。
+  - JSON envelope 增加 `window_days` 字段 + 动态 `filter` 描述。
+
+### 跑 (2026-06-10, --window-days 1)
+- 命中视频 10 个（5 个 UP 主：马男聊投资 / 刘老师の炒股笔记 / 投资笔记-原创 / 强龙投资日记 / 老宇投资 / 李大霄×3 / 海螺复盘 / 淘沙博士）
+- 评论 227 条；导入 219，跳过 8 (comment_id 已在 DB)；错误 0
+- 强龙投资日记 视频 "2026.6.9，选g唯二" 0 评论 (脚本内已正确处理)
+- 写入 `comments/bilibili_2026-06-10.json`（旧空文件已备份为 `.bak.empty`）
+
+### 新发现：opencli `user-videos` 视频日期与评论时间错位
+- 现象：脚本输出 "当天无新视频" 窗口 [2026-06-09, 2026-06-10] 内，10 个视频的 `opencli date` 字段全部是 `2026-06-10`，但 227 条评论的 `time` 字段全部是 `2026-06-09 xx:xx` (CST)。
+- 例：马男聊投资 `BV1vNEE64EHs` (`date=2026-06-10`) 第一条评论 `time=2026-06-09 11:27`。
+- 推测：`opencli bilibili user-videos` 的 `date` 字段是视频被加入"最近发布"列表的日期（晚于实际发布时间），或 CLI 内部有 +1 天偏移；`comments-raw` 的 `time` 字段是真实评论时间（CST）。
+- 影响：本次 `target_date=2026-06-10` 的"今日"窗口没有抓到任何 06-10 实际评论（全部 227 条都来自 06-09 实际评论）。改用 ±1 天窗口后，6-09 实际评论可入库，但视频元数据的 `date` 与评论时间存在 1 天错位。
+- 建议：
+  1. 给 `opencli bilibili user-videos` 加 `pubdate` (秒时间戳) 输出，并修正 `date` 字段。
+  2. 脚本内可加 fallback：用每条视频的评论 time 分布回推真实发布日，与 opencli date 取 min。
+  3. 若 opencli 不修，文档化"date 字段可能晚于真实发布日 0~1 天"，`--window-days` 默认建议为 1。
+
+
+## 2026-06-10 10:55 — opencli 调用加 `--window background` 防浏览器抢焦点
+
+### 改动
+- `collect_bilibili_today.py` 的两个 opencli 调用都加 `--window background`：
+  - `fetch_videos_opencli()` (`user-videos`)
+  - `fetch_comments()` (`comments-raw`)
+- 不改 `bili` 调用路径 — `bili` 走 `browser-cookie3` 读本地浏览器 cookie DB，不启动浏览器窗口。
+
+### 原理
+- opencli `Strategy.COOKIE` 的命令需要 Browser Bridge (`chrome + opencli 扩展`)。当 bridge 拿不到 cookie 时 opencli 会启动/前台化一个 Chrome 窗口去抓 `bilibili.com` 的登录态，默认 `--window foreground` 会把窗口拉到最前。
+- 加 `--window background` 后任何新打开/前台化的 Chrome 窗口都退到后台，不抢焦点、不打扰用户。
+
+### 验证
+- `opencli bilibili user-videos 52764688 --limit 2 --window background -f json` → 返回正常 JSON
+- `opencli bilibili comments-raw BV1ndE76eE7V --limit 2 --window background -f json` → 返回正常 JSON
+
+### 后续可考虑
+- 加 `--site-session ephemeral` (默认 persistent) 让命令结束后立即释放 tab lease，避免 Chrome 长期持有 bilibili tab。
+- 配合 doctor 报告的"Extension 不稳定"问题：可以加 `OPENCLI_BROWSER_CONNECT_TIMEOUT=10` 快速失败，自动 fallback 到 `bili` 兜底（`bili user-videos` 不需要浏览器）。
