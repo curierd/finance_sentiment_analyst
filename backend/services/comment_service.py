@@ -38,7 +38,7 @@ class CommentService:
     def create_comment(self, data):
         if not data.get("content"):
             raise ValueError("content is required")
-        if data.get("platform") not in ("bilibili", "xueqiu", "xiaohongshu", None):
+        if data.get("platform") not in ("bilibili", "xueqiu", "xiaohongshu", "zhihu", None):
             raise ValueError("Invalid platform value")
         return self.repo.insert(data)
 

@@ -8,13 +8,13 @@ PRAGMA foreign_keys = ON;
 
 -- ============================================================
 -- Table: comments
--- Stores comments collected from Bilibili, Xiaohongshu, Xueqiu
+-- Stores comments collected from Bilibili, Xiaohongshu, Xueqiu, Zhihu
 -- ============================================================
 CREATE TABLE IF NOT EXISTS comments (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
 
     -- Platform identification
-    platform        TEXT NOT NULL CHECK(platform IN ('bilibili', 'xiaohongshu', 'xueqiu')),
+    platform        TEXT NOT NULL CHECK(platform IN ('bilibili', 'xiaohongshu', 'xueqiu', 'zhihu')),
 
     -- Platform-specific IDs
     comment_id      TEXT,
@@ -77,7 +77,7 @@ CREATE INDEX IF NOT EXISTS idx_comments_platform_sentiment ON comments(platform,
 -- ============================================================
 CREATE TABLE IF NOT EXISTS up_masters (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    platform        TEXT NOT NULL CHECK(platform IN ('bilibili', 'xiaohongshu', 'xueqiu')),
+    platform        TEXT NOT NULL CHECK(platform IN ('bilibili', 'xiaohongshu', 'xueqiu', 'zhihu')),
     uid TEXT NOT NULL, -- Platform-specific user ID
     name TEXT NOT NULL,
     fans_count INTEGER DEFAULT 0,
@@ -94,8 +94,8 @@ CREATE TABLE IF NOT EXISTS up_masters (
 -- ============================================================
 CREATE TABLE IF NOT EXISTS videos (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    platform        TEXT NOT NULL CHECK(platform IN ('bilibili', 'xiaohongshu', 'xueqiu')),
-    video_id TEXT NOT NULL,          -- bvid / note_id / post_id
+    platform        TEXT NOT NULL CHECK(platform IN ('bilibili', 'xiaohongshu', 'xueqiu', 'zhihu')),
+    video_id TEXT NOT NULL,          -- bvid / note_id / post_id / answer_id
     title TEXT,
     up_name         TEXT,
     up_uid TEXT,
