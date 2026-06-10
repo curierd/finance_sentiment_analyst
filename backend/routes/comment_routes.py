@@ -260,6 +260,22 @@ def get_stats_timeline_image():
                 pass
 
 
+@comment_bp.route("/api/comments/analyze", methods=["POST"])
+def analyze_comments():
+    filters = {
+        "platform": request.args.get("platform"),
+        "up_name": request.args.get("up_name"),
+        "video_title": request.args.get("video_title"),
+        "sentiment": request.args.get("sentiment"),
+        "author": request.args.get("author"),
+        "locked": request.args.get("locked"),
+        "date_from": request.args.get("date_from"),
+        "date_to": request.args.get("date_to"),
+    }
+    filters = {k: v for k, v in filters.items() if v is not None and v != ""}
+    return jsonify(get_service().analyze_sentiment(filters))
+
+
 @comment_bp.route("/api/up_masters", methods=["GET"])
 def get_up_masters():
     return jsonify(get_service().get_up_masters())

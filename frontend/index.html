@@ -171,6 +171,15 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
 .card-delete { background: none; border: 1px solid var(--border); color: var(--text-dim); padding: 3px 8px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-left: 6px; }
 .card-delete:hover { color: var(--neg); border-color: var(--neg); }
 
+.analyze-btn { background: var(--accent); border-color: var(--accent); color: #fff; justify-content: center; font-weight: 600; }
+.analyze-btn:hover { opacity: 0.85; color: #fff; }
+.analyze-btn.loading { opacity: 0.6; pointer-events: none; }
+.analyze-result-title { font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.analyze-result-row { display: flex; justify-content: space-between; align-items: center; }
+.analyze-result-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+.analyze-mini-bar { height: 4px; background: var(--border); border-radius: 2px; margin: 2px 0 6px; overflow: hidden; display: flex; }
+.analyze-mini-seg { height: 100%; }
+
 .datepicker-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 1200; }
 .datepicker-modal.open { display: flex; }
 .datepicker-modal-content { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 0; max-width: 640px; width: 94vw; overflow: hidden; }
@@ -275,6 +284,13 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
       <button class="filter-btn" id="dateRangeBtn" onclick="openDatePicker()">
         <span class="filter-dot all"></span> <span id="dateRangeLabel">全部时间</span>
       </button>
+
+      <h3>批量操作</h3>
+      <button class="filter-btn analyze-btn" id="analyzeBtn" onclick="analyzeSentiment()">
+        <span id="analyzeBtnText">🔄 重新分析</span>
+      </button>
+      <div style="font-size:11px;color:var(--text-dim);margin:4px 0 0 4px;" id="analyzeHint">可分析 <span id="analyzeCount">-</span> 条</div>
+      <div id="analyzeResult" style="display:none;margin-top:8px;background:var(--bg);border-radius:6px;padding:10px;font-size:12px;line-height:1.6;"></div>
     </aside>
 
     <main class="main">
@@ -502,7 +518,69 @@ function loadStats() {
       '<span>自动 ' + ac + ' 条</span>' +
       '<span style="color:var(--accent)">锁定 ' + lc + ' 条</span>' +
       '<span>|</span><span>共 ' + total + ' 条</span>';
+    document.getElementById('analyzeCount').textContent = ac;
   });
+}
+
+var analyzeRunning = false;
+function analyzeSentiment() {
+  if (analyzeRunning) return;
+  var countEl = document.getElementById('analyzeCount');
+  var ac = parseInt(countEl.textContent) || 0;
+  if (ac === 0) {
+    document.getElementById('analyzeResult').style.display = 'block';
+    document.getElementById('analyzeResult').innerHTML = '<div style="color:var(--text-dim)">没有需要分析的评论（当前筛选条件下无可分析评论或全部已锁定）</div>';
+    return;
+  }
+  if (!confirm('将对当前筛选条件下的 ' + ac + ' 条未锁定评论重新进行情绪分析，确定继续？')) return;
+
+  analyzeRunning = true;
+  var btn = document.getElementById('analyzeBtn');
+  var btnText = document.getElementById('analyzeBtnText');
+  btn.classList.add('loading');
+  btnText.textContent = '分析中...';
+  document.getElementById('analyzeResult').style.display = 'none';
+
+  fetch(API + '/comments/analyze?' + buildStatsParams(), { method: 'POST' })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      btn.classList.remove('loading');
+      analyzeRunning = false;
+      showAnalyzeResult(data);
+      loadComments();
+      refreshStatsIfVisible();
+    })
+    .catch(function(err) {
+      btn.classList.remove('loading');
+      analyzeRunning = false;
+      btnText.textContent = '🔄 重新分析';
+      document.getElementById('analyzeResult').style.display = 'block';
+      document.getElementById('analyzeResult').innerHTML = '<div style="color:var(--neg)">分析失败: ' + err.message + '</div>';
+    });
+}
+
+function showAnalyzeResult(data) {
+  var btnText = document.getElementById('analyzeBtnText');
+  btnText.textContent = '🔄 重新分析';
+  var el = document.getElementById('analyzeResult');
+  el.style.display = 'block';
+  if (!data.stats) {
+    el.innerHTML = '<div style="color:var(--text-dim)">没有需要分析的评论</div>';
+    return;
+  }
+  var s = data.stats;
+  var t = s.total || 0;
+  var html = '<div class="analyze-result-title">分析完成</div>';
+  html += '<div class="analyze-result-row"><span><span class="analyze-result-dot" style="background:var(--pos)"></span>正面</span><span style="color:var(--pos);font-weight:600">' + s.counts['正面'] + ' (' + s.pct['正面'] + '%)</span></div>';
+  html += '<div class="analyze-result-row"><span><span class="analyze-result-dot" style="background:var(--neu)"></span>中性</span><span style="color:var(--neu);font-weight:600">' + s.counts['中性'] + ' (' + s.pct['中性'] + '%)</span></div>';
+  html += '<div class="analyze-result-row"><span><span class="analyze-result-dot" style="background:var(--neg)"></span>负面</span><span style="color:var(--neg);font-weight:600">' + s.counts['负面'] + ' (' + s.pct['负面'] + '%)</span></div>';
+  html += '<div class="analyze-mini-bar">';
+  html += '<div class="analyze-mini-seg" style="background:var(--pos);width:' + s.pct['正面'] + '%"></div>';
+  html += '<div class="analyze-mini-seg" style="background:var(--neu);width:' + s.pct['中性'] + '%"></div>';
+  html += '<div class="analyze-mini-seg" style="background:var(--neg);width:' + s.pct['负面'] + '%"></div>';
+  html += '</div>';
+  html += '<div style="font-size:10px;color:var(--text-dim);margin-top:4px;">共分析 ' + t + ' 条，综合分 ' + (s.score_sum >= 0 ? '+' : '') + s.score_sum + '，均值 ' + s.score_avg + '</div>';
+  el.innerHTML = html;
 }
 
 function loadStatsPanel() {

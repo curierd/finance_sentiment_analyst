@@ -223,6 +223,31 @@ class CommentRepository:
         conn.close()
         return changes > 0
 
+    def find_unlocked_ids_by_filter(self, filters=None):
+        """Return (id, content) for all unlocked comments matching filters (no pagination)."""
+        filters = filters or {}
+        where, params = self._build_where(filters)
+        where.append("sentiment_fix IS NULL")
+        where_clause = " AND ".join(where)
+
+        conn = get_db()
+        rows = conn.execute(
+            f"SELECT id, content FROM comments WHERE {where_clause} ORDER BY id",
+            params,
+        ).fetchall()
+        conn.close()
+        return [{"id": r["id"], "content": r["content"]} for r in rows]
+
+    def batch_update_sentiment(self, updates):
+        """updates: list of (sentiment, sentiment_score, id) tuples."""
+        conn = get_db()
+        with conn:
+            conn.executemany(
+                "UPDATE comments SET sentiment = ?, sentiment_score = ? WHERE id = ?",
+                updates,
+            )
+        conn.close()
+
     def _build_where(self, filters):
         where, params = [], []
         p = filters.get("platform")

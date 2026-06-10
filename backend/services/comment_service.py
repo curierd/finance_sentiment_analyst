@@ -48,6 +48,30 @@ class CommentService:
             raise ValueError("Comment not found")
         return deleted
 
+    def analyze_sentiment(self, filters=None):
+        import sys, os, importlib.util
+
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        spec = importlib.util.spec_from_file_location(
+            "analyze",
+            os.path.join(repo_root, "jobs", "BERT-TextCNN", "analyze.py"),
+        )
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+
+        records = self.repo.find_unlocked_ids_by_filter(filters)
+        if not records:
+            return {"total_matched": 0, "locked_skipped": 0, "analyzed": 0, "stats": None}
+
+        result = mod.analyze_batch(records)
+        updates = [(r["sentiment"], r["score"], r["id"]) for r in result["records"]]
+        self.repo.batch_update_sentiment(updates)
+
+        return {
+            "analyzed": result["stats"]["total"],
+            "stats": result["stats"],
+        }
+
     def get_stats_by_date(self, granularity="day", filters=None):
         if granularity not in ("day", "week", "month"):
             granularity = "day"
