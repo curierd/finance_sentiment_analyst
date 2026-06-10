@@ -103,6 +103,7 @@ class SentimentAnalyzer:
     def tokenize(self, text):
         """中文分词"""
         # 清洗
+        # 龥 = U+9FA5 是 CJK 统一表意文字基本区的上界(龥字符在部分终端/字体可能显示为方块,是正常字形)
         text = re.sub(r'[^一-龥a-zA-Z0-9]', ' ', str(text))
         # jieba分词
         words = jieba.cut(text)

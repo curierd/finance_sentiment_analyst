@@ -9,14 +9,10 @@ module under test). Run via ``unittest discover``:
 """
 import importlib.util
 import os
-import sys
 import unittest
 
 
-# jobs/BERT-TextCNN/tests/test_analyze.py  →  repo root is 3 dirs up
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ANALYZER_PATH = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "analyze.py"))
-sys.path.insert(0, REPO_ROOT)  # so textcnn_sentiment resolves at import time
 
 
 def _load_analyzer():
@@ -30,6 +26,7 @@ ANALYZER = _load_analyzer()
 SENTIMENTS = ANALYZER.SENTIMENTS
 analyze_text = ANALYZER.analyze_text
 analyze_batch = ANALYZER.analyze_batch
+SentimentAnalyzer = ANALYZER.SentimentAnalyzer
 
 
 # ---------- shared corpus ----------
@@ -79,7 +76,6 @@ class TestAnalyzeText(unittest.TestCase):
         self.assertEqual(r["sentiment"], "中性")
 
     def test_passes_through_existing_analyzer(self):
-        from textcnn_sentiment import SentimentAnalyzer
         az = SentimentAnalyzer()
         r = analyze_text(POS_TEXT, analyzer=az)
         self.assertEqual(r["sentiment"], "正面")
@@ -150,7 +146,6 @@ class TestAnalyzeBatch(unittest.TestCase):
         self.assertEqual(out["stats"]["counts"]["负面"], 1)
 
     def test_uses_provided_analyzer_instance(self):
-        from textcnn_sentiment import SentimentAnalyzer
         az = SentimentAnalyzer()
         out = analyze_batch([{"content": POS_TEXT}, {"content": NEG_TEXT}], analyzer=az)
         # sanity: both records analyzed without raising
