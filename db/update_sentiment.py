@@ -7,8 +7,14 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 import sqlite3
 import sys
+import importlib.util
 sys.path.insert(0, ".")
-from textcnn_sentiment import SentimentAnalyzer
+_bert_textcnn = importlib.util.spec_from_file_location(
+    "textcnn_sentiment", "jobs/BERT-TextCNN/textcnn_sentiment.py"
+)
+_mod = importlib.util.module_from_spec(_bert_textcnn)
+_bert_textcnn.loader.exec_module(_mod)
+SentimentAnalyzer = _mod.SentimentAnalyzer
 
 DB_PATH = "db/comments.db"
 BATCH = 50

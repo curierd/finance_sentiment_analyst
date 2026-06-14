@@ -35,6 +35,12 @@ CST = timezone(timedelta(hours=8))
 TODAY = datetime.now(CST).strftime("%Y-%m-%d")
 RATE_LIMIT = 1.2
 
+# Allow --date override
+if "--date" in sys.argv:
+    idx = sys.argv.index("--date")
+    if idx + 1 < len(sys.argv):
+        TODAY = sys.argv[idx + 1]
+
 blogger_list_path = JOB_DIR / "xiaohongshu-finance-up.md"
 
 

@@ -19,33 +19,39 @@ INTERMEDIATE_DIR = PROJECT_ROOT / "intermediate"
 
 
 def load_stock_symbols():
-    """从 sections 文件加载股票代码"""
-    symbols = []
+    """从 sections 文件加载股票代码，返回 (所有代码列表, {section: [代码]})"""
+    all_symbols = []
+    sections = {}
     sections_dir = PROJECT_ROOT / "data" / "sections"
-    for section_file in sections_dir.glob("*.md"):
+    for section_file in sorted(sections_dir.glob("*.md")):
         section_name = section_file.stem
+        symbols = []
         with open(section_file, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#"):
                     continue
-                # 匹配带前缀的股票代码 (SH/SZ + 6位数字)
-                match = re.search(r'([A-Z]{2}\d{6})', line)
+                # 匹配带前缀的股票代码 (SH/SZ + 6位数字, HK + 5位数字)
+                match = re.search(r'([A-Z]{2}\d{5,6})', line)
                 if match:
                     symbols.append(match.group(1))
                     continue
                 # 匹配纯数字代码 (CPO.md 格式: 名称(代码))
-                match = re.search(r'\((\d{6})\)', line)
+                match = re.search(r'\((\d{5,6})\)', line)
                 if match:
                     code = match.group(1)
-                    # 根据代码规则添加前缀
-                    if code.startswith(('6', '51', '58')):
+                    # 5位数字以0开头 → HK
+                    if len(code) == 5 and code.startswith('0'):
+                        symbols.append(f"HK{code}")
+                    elif code.startswith(('6', '51', '58')):
                         symbols.append(f"SH{code}")
                     elif code.startswith(('0', '3', '15')):
                         symbols.append(f"SZ{code}")
                     else:
                         symbols.append(f"SZ{code}")
-    return list(set(symbols))
+        sections[section_name] = symbols
+        all_symbols.extend(symbols)
+    return list(set(all_symbols)), sections
 
 
 def load_blogger_ids():
@@ -107,15 +113,24 @@ def is_today(date_str, target_date):
         return False
 
 
+def normalize_symbol_for_xueqiu(symbol):
+    """将 sections 中的股票代码转为雪球 API 接受的格式"""
+    # HK 前缀代码 → 纯数字（雪球 API 不接受 HK 前缀）
+    if symbol.startswith("HK"):
+        return symbol[2:]
+    return symbol
+
+
 def collect_stock_comments(symbols, target_date, limit=50):
     """收集股票评论"""
     all_comments = []
 
     for i, symbol in enumerate(symbols):
+        api_symbol = normalize_symbol_for_xueqiu(symbol)
         print(f"[{i+1}/{len(symbols)}] 采集 {symbol} 讨论动态...")
 
         comments = run_opencli([
-            "xueqiu", "comments", symbol,
+            "xueqiu", "comments", api_symbol,
             "--limit", str(limit),
             "-f", "json"
         ])
@@ -197,7 +212,7 @@ def main():
     INTERMEDIATE_DIR.mkdir(exist_ok=True)
 
     # 加载数据
-    stock_symbols = load_stock_symbols()
+    stock_symbols, sections = load_stock_symbols()
     blogger_ids = load_blogger_ids()
     blogger_names = load_blogger_names()
 
@@ -209,21 +224,10 @@ def main():
     data = {
         "target_date": target_date,
         "platform": "雪球",
-        "sources": [
-            "data/xueqiu-finance-up.md",
-            "data/sections/laodeng.md",
-            "data/sections/CPO.md",
+        "sources": ["data/xueqiu-finance-up.md"] + [
+            f"data/sections/{name}.md" for name in sorted(sections.keys())
         ],
-        "sections": {
-            "laodeng": [
-                s for s in stock_symbols
-                if s.startswith("SH51") or s.startswith("SH60") or s.startswith("SZ000")
-            ],
-            "CPO": [
-                s for s in stock_symbols
-                if s.startswith("SZ3") or s.startswith("SZ002") or s.startswith("SH515") or s.startswith("SZ159")
-            ],
-        },
+        "sections": sections,
         "blogger_ids": blogger_ids,
         "blogger_names": blogger_names,
         "stock_comments": [],
