@@ -190,6 +190,25 @@ def import_xiaohongshu_data(json_path, update_likes_flag=True):
     return total_imported, total_sub_imported, total_updated, total_skipped, total_pics
 
 
+def analyze_new_comments():
+    """Run BERT-TextCNN sentiment analysis on unlocked xiaohongshu comments."""
+    from backend.database import get_db
+    conn = get_db()
+    new_count = conn.execute(
+        "SELECT COUNT(*) FROM comments WHERE platform = 'xiaohongshu' "
+        "AND sentiment IS NULL AND sentiment_fix IS NULL"
+    ).fetchone()[0]
+    conn.close()
+
+    if new_count == 0:
+        print("  Sentiment: all comments already analyzed, skipping")
+        return {"analyzed": 0, "stats": None}
+
+    print(f"  Sentiment: analyzing {new_count} new comments with BERT-TextCNN...")
+    svc = CommentService()
+    return svc.analyze_sentiment(filters={"platform": "xiaohongshu"})
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="Import xiaohongshu comments to DB")
@@ -221,6 +240,15 @@ def main():
     print(f"  Comment pictures: {pics}")
     print(f"  Total new: {imported + sub_imported}")
     print(f"{'='*50}")
+
+    if imported + sub_imported > 0:
+        print(f"\n--- Step 4: Sentiment Analysis ---")
+        sa_result = analyze_new_comments()
+        if sa_result and sa_result.get("analyzed"):
+            s = sa_result.get("stats", {})
+            print(f"  Analyzed: {sa_result['analyzed']} comments")
+            if s:
+                print(f"  Sentiment dist: {s.get('counts', {})}")
 
     repo = CommentRepository()
     stats = repo.stats(filters={"platform": "xiaohongshu"})

@@ -83,12 +83,14 @@ def load_blogger_names():
 
 
 def run_opencli(args, max_retries=2):
-    """运行 opencli 命令，返回 JSON 结果"""
+    """运行 opencli 命令（OPENCLI_WINDOW=background 防止抢焦点），返回 JSON 结果"""
     cmd = ["opencli"] + args
+    env = os.environ.copy()
+    env["OPENCLI_WINDOW"] = "background"
     for attempt in range(max_retries):
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=120
+                cmd, capture_output=True, text=True, timeout=120, env=env
             )
             if result.returncode == 0 and result.stdout.strip():
                 return json.loads(result.stdout)

@@ -87,7 +87,7 @@ def parse_up_list(path):
 
 def run(cmd, timeout=120):
     env = os.environ.copy()
-    env.setdefault("OPENCLI_WINDOW", "background")
+    env["OPENCLI_WINDOW"] = "background"
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
     return r.returncode, r.stdout, r.stderr
 
@@ -407,9 +407,30 @@ def main():
         return
 
     if args.import_only or data["comments"]:
-        import_comments(data["comments"], data.get("ups_with_today_videos", []), data["errors"])
+        imported, skipped = import_comments(
+            data["comments"], data.get("ups_with_today_videos", []), data["errors"])
         with final_path.open("w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+
+        if imported > 0:
+            print("\n--- Sentiment Analysis (BERT-TextCNN) ---")
+            from backend.services.comment_service import CommentService
+            from backend.database import get_db
+            conn = get_db()
+            new_count = conn.execute(
+                "SELECT COUNT(*) FROM comments WHERE platform = 'bilibili' "
+                "AND sentiment IS NULL AND sentiment_fix IS NULL"
+            ).fetchone()[0]
+            conn.close()
+            if new_count > 0:
+                print(f"  Analyzing {new_count} new comments...")
+                svc = CommentService()
+                result = svc.analyze_sentiment(filters={"platform": "bilibili"})
+                if result and result.get("analyzed"):
+                    s = result.get("stats", {})
+                    print(f"  Analyzed: {result['analyzed']}, dist: {s.get('counts', {})}")
+            else:
+                print("  All comments already analyzed, skipping")
 
     print("\n[DONE]")
 
