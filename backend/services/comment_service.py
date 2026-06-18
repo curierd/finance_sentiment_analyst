@@ -54,7 +54,7 @@ class CommentService:
         repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         spec = importlib.util.spec_from_file_location(
             "analyze",
-            os.path.join(repo_root, "jobs", "BERT-TextCNN", "analyze.py"),
+            os.path.join(repo_root, "jobs", "sentiment_analyzer", "analyze.py"),
         )
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)

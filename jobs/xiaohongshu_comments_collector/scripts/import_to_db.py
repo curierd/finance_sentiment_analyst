@@ -191,7 +191,7 @@ def import_xiaohongshu_data(json_path, update_likes_flag=True):
 
 
 def analyze_new_comments():
-    """Run BERT-TextCNN sentiment analysis on unlocked xiaohongshu comments."""
+    """Run sentiment analysis on unlocked xiaohongshu comments."""
     from backend.database import get_db
     conn = get_db()
     new_count = conn.execute(
@@ -204,7 +204,7 @@ def analyze_new_comments():
         print("  Sentiment: all comments already analyzed, skipping")
         return {"analyzed": 0, "stats": None}
 
-    print(f"  Sentiment: analyzing {new_count} new comments with BERT-TextCNN...")
+    print(f"  Sentiment: analyzing {new_count} new comments...")
     svc = CommentService()
     return svc.analyze_sentiment(filters={"platform": "xiaohongshu"})
 

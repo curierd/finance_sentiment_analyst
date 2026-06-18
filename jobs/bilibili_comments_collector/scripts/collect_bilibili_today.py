@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -85,11 +86,49 @@ def parse_up_list(path):
     return ups, blacklist
 
 
+def _resolve_tool(name):
+    """Resolve a tool to a Windows-executable path on Windows. The npm
+    `opencli` is a bash script without an extension that subprocess.run on
+    Windows cannot find — use the .cmd shim instead.
+    """
+    if os.name != "nt":
+        return name
+    if os.path.isabs(name) or "\\" in name or "/" in name:
+        return name
+    if name == "python3":
+        return sys.executable
+    for ext in ("", ".cmd", ".exe", ".bat"):
+        candidate = shutil.which(name + ext)
+        if candidate:
+            return candidate
+    return name
+
+
+def _strip_preamble(text):
+    """Strip Windows preamble lines like 'Active code page: 65001' that
+    the opencli.CMD shim emits before stdout. The first valid JSON value
+    starts at the first line beginning with '{' or '['.
+    """
+    if not text:
+        return text
+    lines = text.splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        stripped = line.lstrip()
+        if stripped.startswith(("{", "[")):
+            return "".join(lines[i:])
+    return text
+
+
 def run(cmd, timeout=120):
     env = os.environ.copy()
     env["OPENCLI_WINDOW"] = "background"
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
-    return r.returncode, r.stdout, r.stderr
+    if isinstance(cmd, list) and cmd:
+        cmd = [_resolve_tool(c) if i == 0 else c for i, c in enumerate(cmd)]
+    r = subprocess.run(
+        cmd, capture_output=True, text=True, timeout=timeout, env=env,
+        encoding="utf-8", errors="replace",
+    )
+    return r.returncode, _strip_preamble(r.stdout), r.stderr
 
 
 def is_in_window(date_str, target_date_str, window_days):
@@ -166,17 +205,21 @@ def normalize_video(v, up, source="opencli"):
 
 
 def fetch_comments(bvid, limit=50):
-    """Use the private `opencli bilibili comments-raw` adapter (returns pics[])."""
+    """Fetch comments via opencli bilibili comments. The legacy private
+    `comments-raw` adapter was removed in opencli >= 1.8.4; fall back to the
+    public `comments` command which returns rank/rpid/author/text/likes/replies/time
+    (no pics[]).
+    """
     rc, out, err = run(
-        ["opencli", "bilibili", "comments-raw", bvid,
+        ["opencli", "bilibili", "comments", bvid,
          "--limit", str(limit), "-f", "json"]
     )
     if rc != 0:
-        return None, {"cmd": "opencli bilibili comments-raw", "rc": rc, "stderr": err.strip()[:200]}
+        return None, {"cmd": "opencli bilibili comments", "rc": rc, "stderr": err.strip()[:200]}
     try:
         return json.loads(out), None
     except json.JSONDecodeError as e:
-        return None, {"cmd": "opencli bilibili comments-raw", "json_error": str(e)}
+        return None, {"cmd": "opencli bilibili comments", "json_error": str(e)}
 
 
 def _ext_from_url(url, default=".jpg"):
@@ -219,7 +262,8 @@ def import_comments(comments, ups_seen, errors):
         return 0, 0
     print(f"\n[IMPORT] 导入数据库 ({len(comments)} 条评论)...")
     repo = CommentRepository()
-    candidates = [c.get("comment_id") for c in comments if c.get("comment_id")]
+    candidates = [c.get("comment_id") or c.get("rpid") for c in comments
+                  if c.get("comment_id") or c.get("rpid")]
     existing = _existing_comment_ids("bilibili", candidates)
     if existing:
         print(f"[IMPORT] 已存在 {len(existing)} 条 (按 comment_id 去重)")
@@ -230,7 +274,9 @@ def import_comments(comments, ups_seen, errors):
             if not text:
                 skipped += 1
                 continue
-            cid = c.get("comment_id")
+            # Map rpid -> comment_id for the new opencli `comments` format
+            # (legacy `comments-raw` used comment_id directly)
+            cid = c.get("comment_id") or c.get("rpid")
             if cid and cid in existing:
                 skipped += 1
                 continue
@@ -413,7 +459,7 @@ def main():
             json.dump(data, f, ensure_ascii=False, indent=2)
 
         if imported > 0:
-            print("\n--- Sentiment Analysis (BERT-TextCNN) ---")
+            print("\n--- Sentiment Analysis ---")
             from backend.services.comment_service import CommentService
             from backend.database import get_db
             conn = get_db()

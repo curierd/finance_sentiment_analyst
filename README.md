@@ -5,7 +5,7 @@
 ## 功能
 
 - **多平台采集** — B站（bili CLI）、雪球（opencli）、小红书（xhs CLI）
-- **情绪分析** — TextCNN / 规则-based 两种模式
+- **情绪分析** — LLM（DeepSeek V3）方案
 - **手动锁定** — `sentiment_fix` 字段锁定修正值，绕过自动分析
 - **统计面板** — 前端可视化：情绪分布 / 点赞加权 / 平台分布
 - **前后端分离** — Flask REST API + Vanilla JS SPA
@@ -14,7 +14,7 @@
 
 ```
 .
-├── textcnn_sentiment.py       # 情绪分析核心（规则 + TextCNN）
+├── jobs/sentiment_analyzer/   # 情绪分析（LLM + 词典规则）
 ├── backend/ # 后端三层架构
 │   ├── config.py              # 路径/DB配置
 │   ├── database.py           # SQLite连接
@@ -45,7 +45,7 @@
 ### 1. 安装依赖
 
 ```bash
-pip install flask jieba torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu numpy
+pip install flask openai
 ```
 
 ### 2. 启动服务（前后端一体）
@@ -231,7 +231,7 @@ python db/import_comments.py
 ## 情绪分析核心
 
 ```python
-from textcnn_sentiment import SentimentAnalyzer
+from jobs.sentiment_analyzer.llm_sentiment import SentimentAnalyzer
 
 analyzer = SentimentAnalyzer()
 result = analyzer.analyze("A股大涨，赚钱了！")

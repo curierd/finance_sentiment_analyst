@@ -1,5 +1,5 @@
 """
-散户评论情绪分析 (BERT-TextCNN)
+散户评论情绪分析 (sentiment_analyzer)
 
 纯库函数模块 — 不直接访问数据库、不生成 HTML。
 调用方负责准备数据 (list[dict]) 与结果展示。

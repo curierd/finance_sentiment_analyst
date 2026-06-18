@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Unit tests for the BERT-TextCNN analyzer library.
+"""Unit tests for the sentiment analyzer library.
 
-Test location: ``jobs/BERT-TextCNN/tests/test_analyze.py`` (co-located with the
+Test location: ``jobs/sentiment_analyzer/tests/test_analyze.py`` (co-located with the
 module under test). Run via ``unittest discover``:
 
-    python -m unittest discover -s jobs/BERT-TextCNN/tests -p "test_*.py" -v
+    python -m unittest discover -s jobs/sentiment_analyzer/tests -p "test_*.py" -v
 """
 import importlib.util
 import os

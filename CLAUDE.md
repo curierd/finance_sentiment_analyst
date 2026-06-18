@@ -11,16 +11,16 @@ uv pip install torch torchvision torchaudio --index-url https://download.pytorch
 uv pip install jieba scikit-learn numpy --system
 ```
 
-### Run the sentiment analyzer smoke test
+### Run the sentiment analyzer smoke test (LLM)
 
 ```bash
-python textcnn_sentiment.py
+python -c "from jobs.sentiment_analyzer.llm_sentiment import SentimentAnalyzer; import os; os.environ['DEEPSEEK_API_KEY']='sk-xxx'; print(SentimentAnalyzer().analyze('A股大涨，赚钱了！'))"
 ```
 
-### Quick single-comment check
+### Quick single-comment check (LLM)
 
 ```bash
-python -c "from textcnn_sentiment import SentimentAnalyzer; print(SentimentAnalyzer().analyze('A股大涨，赚钱了！'))"
+python -c "from jobs.sentiment_analyzer.llm_sentiment import SentimentAnalyzer; print(SentimentAnalyzer().analyze('A股大涨，赚钱了！'))"
 ```
 
 ### Run unit tests
@@ -60,13 +60,12 @@ When collecting Bilibili data, wait ≥1 s between requests to avoid 412 risk-co
 
 ## Architecture
 
-### Sentiment analysis core (`textcnn_sentiment.py`)
+### Sentiment analysis core (`jobs/sentiment_analyzer/`)
 
-- `TextCNN` is a PyTorch CNN text classifier (defined but not used by the current executable path)
-- The working analyzer is the rule-based `SentimentAnalyzer` — edits to classification behavior start in `POSITIVE_WORDS`, `NEGATIVE_WORDS`, `NEUTRAL_WORDS` or the scoring logic in `analyze()`
-- `analyze()` scores tokens, handles one-token-back negation and degree modifiers (很/太/非常 intensify ×1.5, 有点/有些 reduce ×0.5), returns `sentiment`, numeric `scores`, and `tokens`
-- `analyze_comments(comments)` — batch adapter for Bilibili-style dicts (`message`, `author.name`, `like`); skips empty messages, truncates display to 50 chars
-- `summarize_results(results)` — prints quantitative report with overall counts, high-like (like > 10) distribution, and like-weighted sentiment
+- `textcnn_sentiment.py` — Rule-based `SentimentAnalyzer` (jieba + dictionary; TextCNN PyTorch class defined but unused)
+- `llm_sentiment.py` — LLM-based `SentimentAnalyzer` (DeepSeek/OpenAI compatible, default: DeepSeek V3)
+- `analyze.py` — Pure library: `analyze_text()` / `analyze_batch()` wrappers
+- The working LLM route uses OpenAI-compatible API; set `DEEPSEEK_API_KEY` env var
 
 ### Backend — Flask three-layer architecture
 
