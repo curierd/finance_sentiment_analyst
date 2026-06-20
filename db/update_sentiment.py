@@ -14,7 +14,7 @@ sys.path.insert(0, ".")
 _LLM_SOURCE = os.environ.get("LLM_SOURCE", "deepseek")
 if _LLM_SOURCE == "deepseek":
     os.environ.setdefault("LLM_BASE_URL", "https://api.deepseek.com")
-    os.environ.setdefault("LLM_MODEL", "deepseek-chat")
+    os.environ.setdefault("LLM_MODEL", "deepseek-v4-pro")
 elif _LLM_SOURCE == "openai":
     os.environ.setdefault("LLM_BASE_URL", "https://api.openai.com/v1")
     os.environ.setdefault("LLM_MODEL", "gpt-4o-mini")
