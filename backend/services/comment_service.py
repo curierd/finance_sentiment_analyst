@@ -49,7 +49,7 @@ class CommentService:
         return deleted
 
     def analyze_sentiment(self, filters=None):
-        from jobs.sentiment_analyzer.textcnn_sentiment import SentimentAnalyzer
+        from jobs.sentiment_analyzer.llm_sentiment import SentimentAnalyzer
 
         records = self.repo.find_unlocked_ids_by_filter(filters)
         if not records:

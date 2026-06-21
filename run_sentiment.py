@@ -5,10 +5,9 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 sys.path.insert(0, '.')
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'jobs', 'sentiment_analyzer'))
 
 import sqlite3
-from textcnn_sentiment import SentimentAnalyzer
+from jobs.sentiment_analyzer.llm_sentiment import SentimentAnalyzer
 
 from backend.config import DB_PATH as DB_PATH
 BATCH = 50

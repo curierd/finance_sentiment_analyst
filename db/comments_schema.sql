@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS comments (
     created_at      TEXT,           -- ISO8601 format from platform
     collected_at    TEXT DEFAULT (datetime('now')),
 
-    -- Sentiment analysis results (filled later by textcnn_sentiment.py)
+    -- Sentiment analysis results (filled later by llm_sentiment.SentimentAnalyzer / db/update_sentiment.py)
     sentiment TEXT CHECK(sentiment IN ('正面', '负面', '中性')),
     sentiment_score REAL,
 
