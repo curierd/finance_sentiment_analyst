@@ -15,14 +15,14 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCHEDULE_DIR = SCRIPT_DIR.parent
-REPO_ROOT = SCHEDULE_DIR.parent
+REPO_ROOT = SCHEDULE_DIR.parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
 from backend.database import get_db  # noqa: E402
 
 CST = timezone(timedelta(hours=8))
-WINDOW_START = datetime(2026, 6, 15, 15, 0, 0, tzinfo=CST)
-WINDOW_END = datetime(2026, 6, 16, 9, 30, 0, tzinfo=CST)
+WINDOW_START = datetime(2026, 6, 19, 15, 0, 0, tzinfo=CST)
+WINDOW_END = datetime(2026, 6, 23, 9, 30, 0, tzinfo=CST)
 
 
 def log(msg):

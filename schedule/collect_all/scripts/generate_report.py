@@ -3,7 +3,7 @@
 """Generate quantitative Markdown report from the database.
 
 Reads comments where created_at falls within the window:
-  2026-06-17 15:00:00 ~ 2026-06-18 09:30:00 CST
+  2026-06-18 15:00:00 ~ 2026-06-19 09:30:00 CST
 
 Uses sentiment data already populated by db/update_sentiment.py.
 
