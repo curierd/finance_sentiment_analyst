@@ -49,27 +49,47 @@ class CommentService:
         return deleted
 
     def analyze_sentiment(self, filters=None):
-        import sys, os, importlib.util
-
-        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        spec = importlib.util.spec_from_file_location(
-            "analyze",
-            os.path.join(repo_root, "jobs", "sentiment_analyzer", "analyze.py"),
-        )
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
+        from jobs.sentiment_analyzer.textcnn_sentiment import SentimentAnalyzer
 
         records = self.repo.find_unlocked_ids_by_filter(filters)
         if not records:
             return {"total_matched": 0, "locked_skipped": 0, "analyzed": 0, "stats": None}
 
-        result = mod.analyze_batch(records)
-        updates = [(r["sentiment"], r["score"], r["id"]) for r in result["records"]]
+        analyzer = SentimentAnalyzer()
+        enriched = []
+        for r in records:
+            content = str(r.get("content") or "")
+            a = analyzer.analyze(content)
+            pos = float(a["scores"]["positive"])
+            neg = float(a["scores"]["negative"])
+            enriched.append({
+                **r,
+                "text": content,
+                "sentiment": a["sentiment"],
+                "scores": a["scores"],
+                "score": round(pos - neg, 2),
+            })
+
+        updates = [(r["sentiment"], r["score"], r["id"]) for r in enriched]
         self.repo.batch_update_sentiment(updates)
 
+        total = len(enriched)
+        counts = {"正面": 0, "中性": 0, "负面": 0}
+        score_sum = 0.0
+        for r in enriched:
+            counts[r["sentiment"]] = counts.get(r["sentiment"], 0) + 1
+            score_sum += r["score"]
+        stats = {
+            "total": total,
+            "counts": counts,
+            "pct": {s: round(counts[s] / total * 100, 1) if total else 0.0 for s in counts},
+            "score_sum": round(score_sum, 2),
+            "score_avg": round(score_sum / total, 3) if total else 0.0,
+        }
+
         return {
-            "analyzed": result["stats"]["total"],
-            "stats": result["stats"],
+            "analyzed": total,
+            "stats": stats,
         }
 
     def get_stats_by_date(self, granularity="day", filters=None):

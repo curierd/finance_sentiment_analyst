@@ -31,12 +31,10 @@ jobs/
   collect_comments.md        # Multi-platform collection workflow spec
   bilibili.md                # Bilibili-only collection spec + opencli command reference
   bilibili_comments_collector/bilibili-finance-up.md  # Active B站 UP-master list (NOT under data/)
-  sentiment_analyzer/        # Library + SKILL.md (LLM + dictionary-based)
-    analyze.py               # Pure library: analyze_text/analyze_batch (dictionary-based)
+  sentiment_analyzer/        # Library + SKILL.md (LLM only)
     llm_sentiment.py         # LLM-based SentimentAnalyzer (DeepSeek/OpenAI compatible)
-    textcnn_sentiment.py     # Rule-based SentimentAnalyzer (dictionary, legacy)
     SKILL.md                 # API + examples + pitfalls for the analyzer
-    tests/test_analyze.py    # 23 unit tests; run with `unittest discover -s jobs/sentiment_analyzer/tests`
+    tests/                   # (test_analyze.py removed — analyze.py wrapper deleted)
   scripts/
     collect_all_platforms.py # All-platform collector (opencli), ≥1.5s sleep, --import-only mode
     import_existing_data.py  # Import comments/*.json → DB (supports --date / --all / file args)
@@ -55,8 +53,8 @@ cd frontend && pip install -r requirements.txt && python server.py
 python -m unittest tests.test_comment_repository tests.test_comment_service tests.test_routes -v
 python -m unittest discover -s jobs/sentiment_analyzer/tests -p "test_*.py" -v
 
-# Install deps (torch + jieba only needed for dictionary-based analyzer)
-pip install jieba scikit-learn numpy flask openai
+# Install deps (LLM analyzer only — needs `openai`)
+pip install flask openai
 
 # Batch sentiment analysis (skips locked rows)
 python db/update_sentiment.py
@@ -84,7 +82,7 @@ python -c "from jobs.sentiment_analyzer.llm_sentiment import SentimentAnalyzer; 
 - Repository: `test_comment_repository.py` — CRUD, filtering, pagination, stats.
 - Service: `test_comment_service.py` — validation (sentiment lock values, required content, platform enum, delete-not-found).
 - Routes: `test_routes.py` — Flask test client, HTTP status codes and JSON.
-- Analyzer: `jobs/sentiment_analyzer/tests/test_analyze.py` — pure-Python unit tests for `jobs/sentiment_analyzer/analyze.py` (no DB, loaded via `importlib.util`).
+# Analyzer: `jobs/sentiment_analyzer/llm_sentiment.SentimentAnalyzer` — LLM-based (DeepSeek/OpenAI compatible). `textcnn_sentiment.py` (dictionary + TextCNN) 已删除,生产只走 LLM。
 - A single test module can be run with `python -m unittest tests.test_routes -v` (don't need all three).
 
 ## Architecture notes

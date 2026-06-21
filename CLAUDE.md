@@ -11,10 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Install dependencies
 
 ```bash
-# LLM 方案只要这些；词典规则方案额外需要 torch + jieba
-pip install flask openai jieba scikit-learn numpy
-# torch (CPU) — 仅当你需要 jobs/sentiment_analyzer/textcnn_sentiment.py 里的 TextCNN 模型类时
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install flask openai
 ```
 
 LLM 环境变量（`db/update_sentiment.py` 默认走 DeepSeek）：
@@ -54,11 +51,7 @@ python db/update_sentiment.py
 ### Sentiment analyzer smoke tests
 
 ```bash
-# LLM 方案（推荐生产用）
 python -c "from jobs.sentiment_analyzer.llm_sentiment import SentimentAnalyzer; print(SentimentAnalyzer().analyze('A股大涨，赚钱了！'))"
-
-# 词典规则方案（无 API key 时）
-python jobs/sentiment_analyzer/textcnn_sentiment.py
 ```
 
 ### Collect platform data
@@ -102,22 +95,18 @@ When collecting Bilibili data, wait ≥1.5 s between requests. On 412 risk-contr
 
 | 模块 | 实现 | 用途 |
 |------|------|------|
-| `llm_sentiment.py` | OpenAI 兼容 LLM（默认 DeepSeek V3） | **生产用** — `db/update_sentiment.py` 默认调用 |
-| `analyze.py` | 纯库函数包装（`analyze_text` / `analyze_batch`） | 批量任务 / 无 LLM 时的兜底 |
-| `textcnn_sentiment.py` | 词典规则 `SentimentAnalyzer`（含未启用的 `TextCNN` 模型类） | 离线 / 演示 / 词典维护 |
+| `llm_sentiment.py` | OpenAI 兼容 LLM（默认 DeepSeek V3） | **生产用** — `db/update_sentiment.py` / `run_sentiment.py` / `comment_service.analyze_sentiment` 统一调用 |
 
 公开 API（详见 `jobs/sentiment_analyzer/SKILL.md`）：
 
 ```python
 from jobs.sentiment_analyzer.llm_sentiment import SentimentAnalyzer
-from jobs.sentiment_analyzer.analyze import analyze_text, analyze_batch, SENTIMENTS
 
-# SENTIMENTS = ("正面", "中性", "负面")  — 全程使用中文标签
+# sentiment ∈ ("正面", "中性", "负面")  — 全程使用中文标签
 # score = positive - negative，正=偏多 / 负=偏空 / 0=无信号
-# analyze_batch 保留输入记录全部字段，并追加 text/sentiment/scores/score
 ```
 
-`analyze.py` 通过 `importlib.util.spec_from_file_location` 载入 `textcnn_sentiment.py`，规避包路径问题。词典不命中时回退 `中性`。
+旧的 `analyze.py`（批量 + stats 包装层）和 `textcnn_sentiment.py`（词典 + TextCNN）均已删除；生产路径只剩 LLM 版。
 
 ### Backend — Flask three-layer architecture
 
