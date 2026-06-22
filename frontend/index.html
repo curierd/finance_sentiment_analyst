@@ -21,6 +21,7 @@
   --bili: #00a1d6;
   --xueqiu: #1aad19;
   --xiaohongshu: #ff6b6b;
+  --zhihu: #056de8;
   --accent: #6366f1;
   --radius: 10px;
 }
@@ -66,6 +67,7 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
 .platform-badge.bilibili { background: rgba(0,161,214,0.2); color: var(--bili); }
 .platform-badge.xueqiu { background: rgba(26,173,25,0.2); color: var(--xueqiu); }
 .platform-badge.xiaohongshu { background: rgba(255,107,107,0.2); color: var(--xiaohongshu); }
+.platform-badge.zhihu { background: rgba(5,109,232,0.2); color: var(--zhihu); }
 .card-author { font-size: 12px; color: var(--text-dim); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .card-likes { font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 3px; white-space: nowrap; }
 .card-likes svg { width: 12px; height: 12px; fill: var(--text-dim); }
@@ -240,6 +242,7 @@ header h1 { font-size: 16px; font-weight: 600; white-space: nowrap; }
       <button data-platform="bilibili">B站</button>
       <button data-platform="xueqiu">雪球</button>
       <button data-platform="xiaohongshu">小红书</button>
+      <button data-platform="zhihu">知乎</button>
     </div>
     <div class="header-spacer"></div>
     <button id="statsToggle" onclick="toggleStatsPanel()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:5px 12px;font-size:12px;color:var(--text-dim);cursor:pointer;">📊 统计</button>
@@ -622,7 +625,7 @@ function loadStatsPanel() {
 
 function loadPlatformStats() {
   var baseParams = buildStatsParams();
-  var platforms = ['bilibili', 'xueqiu', 'xiaohongshu'];
+  var platforms = ['bilibili', 'xueqiu', 'xiaohongshu', 'zhihu'];
   var container = document.getElementById('platformBreakdown');
   var completed = 0;
   var totals = {};
@@ -635,8 +638,8 @@ function loadPlatformStats() {
         platforms.forEach(function(p2) { grandTotal += totals[p2]; });
         var htmlFinal = '';
         platforms.forEach(function(p2) {
-          var name = {bilibili:'B站', xueqiu:'雪球', xiaohongshu:'小红书'}[p2];
-          var color = {bilibili:'var(--bili)', xueqiu:'var(--xueqiu)', xiaohongshu:'var(--xiaohongshu)'}[p2];
+          var name = {bilibili:'B站', xueqiu:'雪球', xiaohongshu:'小红书', zhihu:'知乎'}[p2];
+          var color = {bilibili:'var(--bili)', xueqiu:'var(--xueqiu)', xiaohongshu:'var(--xiaohongshu)', zhihu:'var(--zhihu)'}[p2];
           var t = totals[p2];
           var width = grandTotal > 0 ? (t/grandTotal*100).toFixed(1) : 0;
           htmlFinal += '<div class="platform-stat">' +
@@ -1058,7 +1061,7 @@ function updateDateRangeLabel() {
   }
 }
 
-function platformName(p) { return {bilibili:'B站', xueqiu:'雪球', xiaohongshu:'小红书'}[p] || p; }
+function platformName(p) { return {bilibili:'B站', xueqiu:'雪球', xiaohongshu:'小红书', zhihu:'知乎'}[p] || p; }
 function esc(s) { if (!s) return ''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 var currentDetailItem = null;
