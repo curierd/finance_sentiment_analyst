@@ -10,7 +10,14 @@
   - 排除：硬科技词 + 互联网/潮玩/茶饮 + 新能源/光伏/锂电
 
 输出：`schedule/collect_all/output/sentiment-laodeng-daily-<TODAY>.{md,html,xlsx,json}`
+
+CLI：
+    python laodeng_daily.py                                   # 默认近 30 天，截至 2026-06-20
+    python laodeng_daily.py --today 2026-06-23                # 改日期标签
+    python laodeng_daily.py --daily-start 2026-06-01 \\
+                           --today 2026-06-23                 # 改起始 + 日期标签
 """
+import argparse
 import io
 import json
 import sys
@@ -21,16 +28,18 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[3]            # .../laodeng/ → sentiment_analyzer/ → jobs/ → REPO_ROOT/
+REPO_ROOT = SCRIPT_DIR.parents[2]            # .../laodeng/ → sentiment_analyzer/ → jobs/ → REPO_ROOT/
 SCHEDULE_DIR = REPO_ROOT / "schedule" / "collect_all"
 sys.path.insert(0, str(REPO_ROOT))
 
 from backend.database import get_db  # noqa: E402
 
 CST = timezone(timedelta(hours=8))
-TODAY = "2026-06-20"
-# 近 30 天（对齐 xiaodeng_daily 6 月窗口起点）
-DAILY_START = "2026-05-23"
+# 默认：近 30 天（对齐 xiaodeng_daily 6 月窗口起点）
+DEFAULT_TODAY = "2026-06-20"
+DEFAULT_DAILY_START = "2026-05-23"
+TODAY = DEFAULT_TODAY
+DAILY_START = DEFAULT_DAILY_START
 
 # 与 laodeng_sentiment.py 完全一致
 LAODENG_PRESETS = [
@@ -700,7 +709,24 @@ def render_excel(path, daily_rows, plat_rows):
     wb.save(path)
 
 
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(description="老登股(主板蓝筹/红利)情绪按天统计")
+    p.add_argument("--daily-start", help="起始日期 YYYY-MM-DD（默认 2026-05-23）",
+                   default=None)
+    p.add_argument("--today", help="日期标签 YYYY-MM-DD（默认 2026-06-20）", default=None)
+    return p.parse_args(argv)
+
+
+def apply_args(args):
+    """把 CLI 参数覆盖到模块级 DAILY_START / TODAY。"""
+    global DAILY_START, TODAY
+    DAILY_START = args.daily_start or DEFAULT_DAILY_START
+    TODAY = args.today or DEFAULT_TODAY
+
+
 def main():
+    apply_args(parse_args())
+
     out_dir = SCHEDULE_DIR / "output"
     out_dir.mkdir(exist_ok=True)
 

@@ -2,12 +2,20 @@
 # -*- coding: utf-8 -*-
 """散户对老登股(主板蓝筹/红利/上证50/沪深300/白酒/银行/保险/煤炭/电力)的情绪分析 — 看好 / 中立 / 看跌。
 
-输入：DB 窗口 2026-06-19 15:00 ~ 2026-06-23 09:30 CST 的所有评论。
+输入：DB 窗口（默认 2026-06-19 15:00 ~ 2026-06-23 09:30 CST）的所有评论。
 筛选：symbol 命中主板大票 (SH600*/SH601*/SH603*) ∪ laodeng.md 预设 12 个标的
       ∪ 内容包含红利/蓝筹/白酒/银行/保险/煤炭/电力/中字头 等关键词。
 情绪：复用 jobs.sentiment_analyzer.llm_sentiment.SentimentAnalyzer（DeepSeek）批量分析。
-输出：schedule/collect_all/output/sentiment-laodeng-2026-06-20.{md,xlsx,html,json}。
+输出：schedule/collect_all/output/sentiment-laodeng-<TODAY>.{md,xlsx,html,json}。
+
+CLI：
+    python laodeng_sentiment.py                                  # 用默认窗口
+    python laodeng_sentiment.py --today 2026-06-23               # 改日期标签
+    python laodeng_sentiment.py --window-start 2026-06-21T15:00  # 改窗口起点
+    python laodeng_sentiment.py --window-start 2026-06-21T15:00 \\
+                              --window-end 2026-06-23T09:30 --today 2026-06-23
 """
+import argparse
 import io
 import json
 import sys
@@ -18,7 +26,7 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-REPO_ROOT = SCRIPT_DIR.parents[3]            # .../laodeng/ → sentiment_analyzer/ → jobs/ → REPO_ROOT/
+REPO_ROOT = SCRIPT_DIR.parents[2]            # .../laodeng/ → sentiment_analyzer/ → jobs/ → REPO_ROOT/
 SCHEDULE_DIR = REPO_ROOT / "schedule" / "collect_all"
 sys.path.insert(0, str(REPO_ROOT))
 
@@ -26,9 +34,11 @@ from backend.database import get_db  # noqa: E402
 from jobs.sentiment_analyzer.llm_sentiment import SentimentAnalyzer  # noqa: E402
 
 CST = timezone(timedelta(hours=8))
-WINDOW_START = datetime(2026, 6, 19, 15, 0, 0, tzinfo=CST)
-WINDOW_END = datetime(2026, 6, 23, 9, 30, 0, tzinfo=CST)
-TODAY = "2026-06-20"
+
+# 默认窗口常量（CLI 覆盖）
+DEFAULT_WINDOW_START = datetime(2026, 6, 19, 15, 0, 0, tzinfo=CST)
+DEFAULT_WINDOW_END = datetime(2026, 6, 23, 9, 30, 0, tzinfo=CST)
+DEFAULT_TODAY = "2026-06-20"
 
 # 老登股 preset（来自 data/sections/laodeng.md）
 LAODENG_PRESETS = [
@@ -678,7 +688,33 @@ def render_excel(path, summary, breakdown, top_comments):
     wb.save(path)
 
 
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(description="散户对老登股(主板蓝筹/红利)情绪分析")
+    p.add_argument("--window-start", help="窗口起点 ISO 格式（默认 2026-06-19T15:00 CST）",
+                   default=None)
+    p.add_argument("--window-end", help="窗口终点 ISO 格式（默认 2026-06-23T09:30 CST）",
+                   default=None)
+    p.add_argument("--today", help="日期标签 YYYY-MM-DD（默认 2026-06-20）", default=None)
+    return p.parse_args(argv)
+
+
+def apply_args(args):
+    """把 CLI 参数覆盖到模块级 WINDOW_START / WINDOW_END / TODAY。"""
+    global WINDOW_START, WINDOW_END, TODAY
+    if args.window_start:
+        WINDOW_START = datetime.fromisoformat(args.window_start).astimezone(CST)
+    else:
+        WINDOW_START = DEFAULT_WINDOW_START
+    if args.window_end:
+        WINDOW_END = datetime.fromisoformat(args.window_end).astimezone(CST)
+    else:
+        WINDOW_END = DEFAULT_WINDOW_END
+    TODAY = args.today or DEFAULT_TODAY
+
+
 def main():
+    apply_args(parse_args())
+
     out_dir = SCHEDULE_DIR / "output"
     out_dir.mkdir(exist_ok=True)
 
