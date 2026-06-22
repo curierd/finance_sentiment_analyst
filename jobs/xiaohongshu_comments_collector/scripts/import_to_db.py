@@ -8,11 +8,15 @@ Handles:
 - Sets local_image_path / original_url only for comments with pictures
 """
 
+import io
 import json
 import subprocess
 import sys
 import time
 from pathlib import Path
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))

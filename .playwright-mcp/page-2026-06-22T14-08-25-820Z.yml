@@ -1,0 +1,247 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - list [ref=e5]:
+      - listitem [ref=e6]:
+        - link "首页" [ref=e7] [cursor=pointer]:
+          - /url: //www.bilibili.com
+          - img [ref=e8]
+          - generic [ref=e10]:
+            - generic [ref=e11]: 首页
+            - img [ref=e12]
+      - listitem [ref=e15]:
+        - link "番剧" [ref=e16] [cursor=pointer]:
+          - /url: //www.bilibili.com/anime/
+      - listitem [ref=e17]:
+        - link "直播" [ref=e18] [cursor=pointer]:
+          - /url: //live.bilibili.com
+      - listitem [ref=e19]:
+        - link "游戏中心" [ref=e20] [cursor=pointer]:
+          - /url: //game.bilibili.com/platform
+      - listitem [ref=e21]:
+        - link "会员购" [ref=e22] [cursor=pointer]:
+          - /url: //show.bilibili.com/platform/home.html?msource=pc_web
+      - listitem [ref=e23]:
+        - link "漫画" [ref=e24] [cursor=pointer]:
+          - /url: //manga.bilibili.com?from=bill_top_mnav
+      - listitem [ref=e25]:
+        - link "赛事" [ref=e26] [cursor=pointer]:
+          - /url: //www.bilibili.com/match/home/
+      - listitem
+    - list [ref=e27]:
+      - listitem [ref=e28] [cursor=pointer]:
+        - listitem [ref=e29]:
+          - generic [ref=e31]: 登录
+      - listitem [ref=e32] [cursor=pointer]:
+        - listitem [ref=e34]:
+          - link [ref=e35]:
+            - /url: //account.bilibili.com/big
+            - img [ref=e36]
+      - listitem [ref=e40] [cursor=pointer]:
+        - img [ref=e42]
+      - listitem [ref=e45] [cursor=pointer]:
+        - img [ref=e47]
+      - listitem [ref=e53] [cursor=pointer]:
+        - img [ref=e55]
+      - listitem [ref=e58] [cursor=pointer]:
+        - img [ref=e60]
+      - listitem [ref=e62] [cursor=pointer]:
+        - img [ref=e64]
+      - listitem [ref=e68] [cursor=pointer]:
+        - listitem [ref=e69]:
+          - img [ref=e72]
+  - generic [ref=e77]:
+    - generic [ref=e78]:
+      - generic [ref=e82]:
+        - img [ref=e83]
+        - img [ref=e86] [cursor=pointer]
+        - textbox "输入关键字搜索" [ref=e88]: 硬核姬老板
+        - button "搜索" [ref=e89] [cursor=pointer]
+      - navigation [ref=e92]:
+        - list [ref=e93]:
+          - listitem [ref=e94]:
+            - generic [ref=e96] [cursor=pointer]: 综合
+          - listitem [ref=e97]:
+            - generic [ref=e98] [cursor=pointer]:
+              - generic [ref=e99]: 视频
+              - generic [ref=e100]: 99+
+          - listitem [ref=e101]:
+            - generic [ref=e102] [cursor=pointer]:
+              - generic [ref=e103]: 番剧
+              - generic [ref=e104]: "0"
+          - listitem [ref=e105]:
+            - generic [ref=e106] [cursor=pointer]:
+              - generic [ref=e107]: 影视
+              - generic [ref=e108]: "0"
+          - listitem [ref=e109]:
+            - generic [ref=e110] [cursor=pointer]:
+              - generic [ref=e111]: 直播
+              - generic [ref=e112]: "0"
+          - listitem [ref=e113]:
+            - generic [ref=e114] [cursor=pointer]:
+              - generic [ref=e115]: 专栏
+              - generic [ref=e116]: 99+
+          - listitem [ref=e117]:
+            - generic [ref=e118] [cursor=pointer]:
+              - generic [ref=e119]: 用户
+              - generic [ref=e120]: "4"
+      - separator [ref=e122]
+    - generic [ref=e125]:
+      - generic [ref=e128]:
+        - generic [ref=e129]:
+          - button "默认排序" [ref=e130] [cursor=pointer]
+          - button "粉丝数由高到低" [ref=e131] [cursor=pointer]
+          - button "粉丝数由低到高" [ref=e132] [cursor=pointer]
+          - button "Lv等级由高到低" [ref=e133] [cursor=pointer]
+          - button "Lv等级由低到高" [ref=e134] [cursor=pointer]
+        - button "更多筛选" [ref=e135] [cursor=pointer]:
+          - text: 更多筛选
+          - img [ref=e136]
+      - generic [ref=e139]:
+        - generic [ref=e141]:
+          - link [ref=e142] [cursor=pointer]:
+            - /url: //space.bilibili.com/2117498259
+          - generic [ref=e148]:
+            - heading "硬核姬老板" [level=2] [ref=e149]:
+              - link "硬核姬老板" [ref=e150] [cursor=pointer]:
+                - /url: //space.bilibili.com/2117498259
+              - img [ref=e151]
+            - paragraph [ref=e154]: 10.6万粉丝 · 572个视频 本职是基金测评，副业说市场。 市场仅提供资讯不代表投资建议。 投资需谨慎。 公粽耗更的勤奋如狗，急的人可移步硬核姬老板
+            - button "+ 关注" [ref=e156] [cursor=pointer]
+        - generic [ref=e158]:
+          - link [ref=e159] [cursor=pointer]:
+            - /url: //space.bilibili.com/3632304742206284
+          - generic [ref=e165]:
+            - heading "硬核姬老板-回关进裙" [level=2] [ref=e166]:
+              - link "硬核姬老板-回关进裙" [ref=e167] [cursor=pointer]:
+                - /url: //space.bilibili.com/3632304742206284
+              - img [ref=e168]
+            - paragraph [ref=e171]: 14粉丝 · 0个视频
+            - button "+ 关注" [ref=e173] [cursor=pointer]
+        - generic [ref=e175]:
+          - link [ref=e176] [cursor=pointer]:
+            - /url: //space.bilibili.com/3707011875211942
+          - generic [ref=e182]:
+            - heading "硬核姬老板-助理" [level=2] [ref=e183]:
+              - link "硬核姬老板-助理" [ref=e184] [cursor=pointer]:
+                - /url: //space.bilibili.com/3707011875211942
+              - img [ref=e185]
+            - paragraph [ref=e188]: 4粉丝 · 0个视频 基金测评 市场解说 市场仅提供资讯 投资需谨慎 回关回复进圈
+            - button "+ 关注" [ref=e190] [cursor=pointer]
+        - generic [ref=e192]:
+          - link [ref=e193] [cursor=pointer]:
+            - /url: //space.bilibili.com/3707016604289419
+          - generic [ref=e199]:
+            - heading "硬核姬老板助理" [level=2] [ref=e200]:
+              - link "硬核姬老板助理" [ref=e201] [cursor=pointer]:
+                - /url: //space.bilibili.com/3707016604289419
+              - img [ref=e202]
+            - paragraph [ref=e205]: 0粉丝 · 0个视频
+            - button "+ 关注" [ref=e207] [cursor=pointer]
+  - generic [ref=e212]:
+    - generic [ref=e213]:
+      - generic [ref=e214]:
+        - generic [ref=e215]: bilibili
+        - generic [ref=e216]:
+          - link "关于我们" [ref=e217] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/aboutUs.html
+          - link "联系我们" [ref=e218] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/contact.html
+          - link "用户协议" [ref=e219] [cursor=pointer]:
+            - /url: //www.bilibili.com/protocal/licence.html
+          - link "加入我们" [ref=e220] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/join.html
+          - link "隐私协议" [ref=e221] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/privacy-pc.html
+          - link "bilibili认证" [ref=e222] [cursor=pointer]:
+            - /url: //account.bilibili.com/account/official/home
+          - link "Investor Relations" [ref=e223] [cursor=pointer]:
+            - /url: //ir.bilibili.com/
+      - generic [ref=e224]:
+        - generic [ref=e225]: 传送门
+        - generic [ref=e226]:
+          - link "协议汇总" [ref=e227] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/topic/activity-cn8bxPLzz.html
+          - link "活动中心" [ref=e228] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/activity-list.html
+          - link "活动专题页" [ref=e229] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/topic_list.html
+          - link "侵权申诉" [ref=e230] [cursor=pointer]:
+            - /url: //www.bilibili.com/v/copyright/intro/
+          - link "帮助中心" [ref=e231] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/help.html
+          - link "社区中心" [ref=e232] [cursor=pointer]:
+            - /url: https://www.bilibili.com/blackboard/activity-5zJxM3spoS.html
+          - link "壁纸站" [ref=e233] [cursor=pointer]:
+            - /url: //space.bilibili.com/6823116#/album
+          - link "广告合作" [ref=e234] [cursor=pointer]:
+            - /url: //e.bilibili.com/
+          - link "名人堂" [ref=e235] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/activity-S1jfy69Jz.html
+          - link "MCN管理中心" [ref=e236] [cursor=pointer]:
+            - /url: //mcn.bilibili.com/studio/mcn/entry
+          - link "高级弹幕" [ref=e237] [cursor=pointer]:
+            - /url: //www.bilibili.com/video/BV1Xx411c7cH/
+          - link "品牌号官网" [ref=e238] [cursor=pointer]:
+            - /url: //b.bilibili.com/
+      - generic [ref=e239]:
+        - link "下载APP" [ref=e241] [cursor=pointer]:
+          - /url: //app.bilibili.com/
+          - img [ref=e243]
+          - paragraph [ref=e245]: 下载APP
+        - link "公益" [ref=e247] [cursor=pointer]:
+          - /url: //love.bilibili.com/
+          - img [ref=e249]
+          - paragraph [ref=e254]: 公益
+        - link "官方微博" [ref=e256] [cursor=pointer]:
+          - /url: //weibo.com/bilibiliweb
+          - img [ref=e258]
+          - paragraph [ref=e260]: 官方微博
+        - generic [ref=e262]:
+          - img [ref=e264]
+          - paragraph [ref=e266]: 官方微信
+    - generic [ref=e269]:
+      - generic [ref=e270]:
+        - link "营业执照" [ref=e271] [cursor=pointer]:
+          - /url: //i0.hdslb.com/bfs/activity-plat/static/20240516/9ccf041718e5d6d6dfaebc91b85c791c/gd85E6tDco.jpg
+        - text: 信息网络传播视听节目许可证：0910417
+        - link "网络文化经营许可证 沪网文【2025】0258-085号" [ref=e272] [cursor=pointer]:
+          - /url: //i0.hdslb.com/bfs/activity-plat/static/20260209/3b3c5705bda98d50983f6f47df360fef/K4t52YryBV.jpeg
+        - text: 广播电视节目制作经营许可证：（沪）字第01248号增值电信业务经营许可证 沪B2-20100043
+      - generic [ref=e273]:
+        - link "互联网ICP备案：沪ICP备13002172号-3" [ref=e274] [cursor=pointer]:
+          - /url: //beian.miit.gov.cn/
+        - link "出版物经营许可证 沪批字第U6699 号" [ref=e275] [cursor=pointer]:
+          - /url: //i0.hdslb.com/bfs/activity-plat/static/20240516/9ccf041718e5d6d6dfaebc91b85c791c/4ainzbFKao.jpg
+        - text: 互联网药品信息服务资格证 沪-非经营性-2022-0011营业性演出许可证 沪市文演（经）00-2253 |
+      - generic [ref=e276]:
+        - link "不良信息举报邮箱：help@bilibili.com" [ref=e277] [cursor=pointer]:
+          - /url: mailto:help@bilibili.com
+        - link "涉未成年举报邮箱：teenprotect@bilibili.com" [ref=e278] [cursor=pointer]:
+          - /url: mailto:teenprotect@bilibili.com
+        - text: 不良信息举报电话：4006262233转3
+        - link "上海互联网举报中心 |" [ref=e280] [cursor=pointer]:
+          - /url: http://www.shjbzx.cn/
+        - link "12345政务服务便民热线 |" [ref=e281] [cursor=pointer]:
+          - /url: http://www.sh12345.gov.cn/
+      - generic [ref=e282]:
+        - link "沪公网安备31011002002436号 |" [ref=e284] [cursor=pointer]:
+          - /url: http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=31011002002436
+        - link "儿童色情信息举报专区 |" [ref=e285] [cursor=pointer]:
+          - /url: mailto:userreport@bilibili.com
+        - link "扫黄打非举报" [ref=e286] [cursor=pointer]:
+          - /url: https://bzpt.shdf.gov.cn/www/shouye/gzfw/wsjb/index.shtml
+      - generic [ref=e287]:
+        - link "网信算备310110764385705230011号" [ref=e288] [cursor=pointer]:
+          - /url: https://beian.cac.gov.cn/api/static/fileUpload/principalOrithm/additional/user_699bbd78-36f4-459c-aeb0-bf98a2a562d8_6185ea2c-c84c-404a-9280-c5465af05948.pdf
+        - link "网信算备310110764385702230013号" [ref=e289] [cursor=pointer]:
+          - /url: https://beian.cac.gov.cn/api/static/fileUpload/principalOrithm/additional/user_699bbd78-36f4-459c-aeb0-bf98a2a562d8_e03e6855-76a6-43fb-b799-d090e7fce25d.pdf
+      - generic [ref=e290]:
+        - text: 网上有害信息举报专区：
+        - link "中国互联网违法和不良信息举报中心" [ref=e292] [cursor=pointer]:
+          - /url: https://www.12377.cn/
+        - text: 亲爱的市民朋友，上海警方反诈劝阻电话"96110"系专门针对避免您财产被骗受损而设，请您一旦收到来电，立即接听。
+      - generic [ref=e293]: 公司名称：上海宽娱数码科技有限公司 |公司地址：上海市杨浦区政立路489号 |电话：021-25099888
+    - generic [ref=e294]:
+      - img [ref=e295]
+      - img [ref=e296]
+      - img [ref=e297]

@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""散户对小登股(科技/小盘)的情绪分析 — 看好 / 中立 / 看跌。
+"""散户对老登股(主板蓝筹/红利/上证50/沪深300/白酒/银行/保险/煤炭/电力)的情绪分析 — 看好 / 中立 / 看跌。
 
 输入：DB 窗口 2026-06-19 15:00 ~ 2026-06-23 09:30 CST 的所有评论。
-筛选：symbol 命中科创板 SH688 / 创业板 SZ300 / 北证 BJ8，OR 内容包含科技/AI/半导体/新能源/腾讯/中芯/泡泡玛特等关键词。
+筛选：symbol 命中主板大票 (SH600*/SH601*/SH603*) ∪ laodeng.md 预设 12 个标的
+      ∪ 内容包含红利/蓝筹/白酒/银行/保险/煤炭/电力/中字头 等关键词。
 情绪：复用 jobs.sentiment_analyzer.llm_sentiment.SentimentAnalyzer（DeepSeek）批量分析。
-输出：schedule/collect_all/output/sentiment-xiaodeng-2026-06-20.{md,xlsx,html}。
+输出：schedule/collect_all/output/sentiment-laodeng-2026-06-20.{md,xlsx,html,json}。
 """
 import io
 import json
@@ -17,8 +18,8 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="repla
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-SCHEDULE_DIR = SCRIPT_DIR.parent
-REPO_ROOT = SCHEDULE_DIR.parent.parent
+REPO_ROOT = SCRIPT_DIR.parents[3]            # .../laodeng/ → sentiment_analyzer/ → jobs/ → REPO_ROOT/
+SCHEDULE_DIR = REPO_ROOT / "schedule" / "collect_all"
 sys.path.insert(0, str(REPO_ROOT))
 
 from backend.database import get_db  # noqa: E402
@@ -29,24 +30,44 @@ WINDOW_START = datetime(2026, 6, 19, 15, 0, 0, tzinfo=CST)
 WINDOW_END = datetime(2026, 6, 23, 9, 30, 0, tzinfo=CST)
 TODAY = "2026-06-20"
 
-# 小登相关关键词（科技股 / 成长股 / 科创关键词 + 预设里的 5 只标的）
-# KEYWORDS: 严格定义"小登股(科技股)"口径。
-# - 显式排除互联网平台股（腾讯）、潮玩/茶饮等消费类（蜜雪、泡泡玛特），
-#   以及泛指词"互联网"——它们属于"老登/消费"，不属于科技股主体。
-# - 显式排除新能源 / 光伏 / 锂电 / 锂电池 / 新能源车 —— 属于传统制造业 /
-#   周期股，不算新兴科技股主体（中芯 / 寒武纪 / 海光 / 光模块 / PCB 等硬科技保留）。
-# - 数据源约定见 data/sections/consumer-tech.md，本脚本只看硬科技口径。
+# 老登股 preset（来自 data/sections/laodeng.md）
+LAODENG_PRESETS = [
+    "SH510050",  # 上证50ETF
+    "SH510300",  # 沪深300ETF
+    "SH510500",  # 中证500ETF
+    "SH518800",  # 黄金ETF
+    "SH601398",  # 工商银行
+    "SH601939",  # 建设银行
+    "SH601288",  # 农业银行
+    "SH600036",  # 招商银行
+    "SH600519",  # 贵州茅台
+    "SZ000858",  # 五粮液
+    "SZ000568",  # 泸州老窖
+    "SH600900",  # 长江电力
+    "SH601088",  # 中国神华
+]
+
+# 老登股关键词（大盘 / 蓝筹 / 红利 / 高股息 + 行业板块 + 代表股简称）
+# KEYWORDS: 严格定义"老登股(价值蓝筹/红利)"口径。
+# - 显式排除硬科技词（科技/AI/半导体/光模块/算力/寒武纪/海光/中际旭创/京东方等）
+#   —— 属于"小登/硬科技"，不是老登股主体。
+# - 显式排除互联网/潮玩/茶饮/消费电子 —— 属于"消费新经济"细分，不算价值蓝筹主体。
+# - 显式排除新能源/光伏/锂电 —— 属于周期股，不算价值蓝筹主体（与小登口径一致排除）。
+# - 数据源约定见 data/sections/laodeng.md（12 个预设标的）+ data/sections/consumer-tech.md。
 KEYWORDS = [
-    # 直接科技关键词
-    "科技", "AI", "人工智能", "半导体", "芯片",
-    "光模块", "PCB", "印制电路", "玻璃基板",
-    "算力", "大模型", "GPU", "CPU", "存储", "FPGA",
-    "机器人", "智能驾驶", "自动驾驶",
-    # 板块/市场结构词
-    "创业板", "科创板", "科创", "小盘", "成长",
-    "结构牛", "硬科技",
-    # 行业内具体股票（中芯 = 半导体龙头，不在互联网/潮玩范围）
-    "中芯", "寒武纪", "海光", "中际旭创", "京东方",
+    # 大盘 / 宽基 / 板块结构词
+    "上证50", "沪深300", "中证500", "中证1000", "蓝筹", "白马", "权重", "大盘",
+    "红利", "高股息", "股息率", "央企", "中字头", "国央企",
+    # 行业板块词
+    "白酒", "消费", "食品饮料", "银行", "保险", "证券", "金融",
+    "煤炭", "电力", "公用事业", "石化", "油气", "地产",
+    # 行业内具体股票 / 简称
+    "茅台", "五粮液", "泸州老窖", "汾酒",
+    "工行", "建行", "中行", "招行", "交行",
+    "平安", "人寿", "太保", "新华保险",
+    "神华", "长江电力", "中石油", "中石化", "中海油",
+    # 风格词（与小登的"结构牛/硬科技"对照）
+    "价值投资", "股息", "长线", "防御",
 ]
 
 
@@ -55,12 +76,22 @@ def log(msg):
     print(f"[{ts}] {msg}", flush=True)
 
 
-def fetch_xiaodeng():
-    """返回窗口内属于小登股的评论记录列表。"""
+def build_symbol_clause():
+    """主板大票 LIKE ∪ 预设 IN。"""
+    like_clause = (
+        "(symbol LIKE 'SH600%' OR symbol LIKE 'SH601%' OR symbol LIKE 'SH603%')"
+    )
+    placeholders = ",".join(["?"] * len(LAODENG_PRESETS))
+    in_clause = f"symbol IN ({placeholders})"
+    return f"({like_clause} OR {in_clause})", LAODENG_PRESETS
+
+
+def fetch_laodeng():
+    """返回窗口内属于老登股的评论记录列表。"""
     ws_utc = WINDOW_START.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     we_utc = WINDOW_END.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     keyword_clause = " OR ".join(["content LIKE ?"] * len(KEYWORDS))
-    params = [f"%{k}%" for k in KEYWORDS]
+    sym_clause, sym_params = build_symbol_clause()
     sql = f"""
         SELECT id, platform, symbol, author_name, content, likes,
                COALESCE(sentiment_fix, sentiment) AS effective_sentiment,
@@ -70,23 +101,24 @@ def fetch_xiaodeng():
           AND datetime(created_at) >= datetime(?, '-8 hours')
           AND datetime(created_at) <= datetime(?, '-8 hours')
           AND (
-            symbol LIKE 'SH688%' OR symbol LIKE 'SZ300%' OR symbol LIKE 'BJ8%'
+            {sym_clause}
             OR ({keyword_clause})
           )
         ORDER BY datetime(created_at)
     """
+    params = [ws_utc, we_utc] + sym_params + [f"%{k}%" for k in KEYWORDS]
     conn = get_db()
-    rows = conn.execute(sql, [ws_utc, we_utc] + params).fetchall()
+    rows = conn.execute(sql, params).fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
 
-def fetch_xiaodeng_breakdown():
-    """返回 (命中symbol模式, 命中关键词, 重叠) 三个集合大小。"""
+def fetch_laodeng_breakdown():
+    """返回 (主板大票, 预设IN, 关键词, 去重合计) 四个命中数。"""
     ws_utc = WINDOW_START.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     we_utc = WINDOW_END.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     keyword_clause = " OR ".join(["content LIKE ?"] * len(KEYWORDS))
-    params = [f"%{k}%" for k in KEYWORDS]
+    sym_clause, sym_params = build_symbol_clause()
     base = """
         FROM comments
         WHERE created_at IS NOT NULL
@@ -94,20 +126,29 @@ def fetch_xiaodeng_breakdown():
           AND datetime(created_at) <= datetime(?, '-8 hours')
     """
     conn = get_db()
-    n_sym = conn.execute(
-        f"SELECT COUNT(*) {base} AND (symbol LIKE 'SH688%' OR symbol LIKE 'SZ300%' OR symbol LIKE 'BJ8%')",
+    n_main = conn.execute(
+        f"SELECT COUNT(*) {base} AND (symbol LIKE 'SH600%' OR symbol LIKE 'SH601%' OR symbol LIKE 'SH603%')",
         [ws_utc, we_utc],
+    ).fetchone()[0]
+    n_preset = conn.execute(
+        f"SELECT COUNT(*) {base} AND symbol IN ({','.join(['?'] * len(LAODENG_PRESETS))})",
+        [ws_utc, we_utc] + sym_params,
     ).fetchone()[0]
     n_kw = conn.execute(
         f"SELECT COUNT(*) {base} AND ({keyword_clause})",
-        [ws_utc, we_utc] + params,
+        [ws_utc, we_utc] + [f"%{k}%" for k in KEYWORDS],
     ).fetchone()[0]
     n_union = conn.execute(
-        f"SELECT COUNT(*) {base} AND (symbol LIKE 'SH688%' OR symbol LIKE 'SZ300%' OR symbol LIKE 'BJ8%' OR ({keyword_clause}))",
-        [ws_utc, we_utc] + params,
+        f"SELECT COUNT(*) {base} AND ({sym_clause} OR ({keyword_clause}))",
+        [ws_utc, we_utc] + sym_params + [f"%{k}%" for k in KEYWORDS],
     ).fetchone()[0]
     conn.close()
-    return {"symbol_pattern": n_sym, "keyword": n_kw, "union": n_union}
+    return {
+        "main_board": n_main,
+        "preset": n_preset,
+        "keyword": n_kw,
+        "union": n_union,
+    }
 
 
 def run_llm_sentiment(records):
@@ -260,11 +301,14 @@ def aggregate(records):
 def render_md(summary, breakdown, top_comments):
     o = summary["overall"]
     lines = [
-        f"# 散户对科技股(小登股)情绪报告 — {TODAY}",
+        f"# 散户对老登股(主板蓝筹/红利)情绪报告 — {TODAY}",
         "",
         f"- 时间窗口（CST）：{WINDOW_START.isoformat()} ~ {WINDOW_END.isoformat()}",
-        f"- 筛选口径：symbol ∈ `SH688*` / `SZ300*` / `BJ8*` ∪ content 含科技/AI/半导体/新能源/腾讯/中芯/泡泡玛特 等关键词",
-        f"- 样本范围：symbol 命中 {breakdown['symbol_pattern']} / 关键词命中 {breakdown['keyword']} / 去重合计 {breakdown['union']}",
+        f"- 筛选口径：symbol ∈ `SH600*` / `SH601*` / `SH603*`（主板大票）∪ "
+        f"`IN(laodeng.md 12 标的)`（上证 50/300/500/黄金 ETF + 工建中招交 + 茅台五粮液 + 长江电力 + 神华）"
+        f"∪ content 含 {len(KEYWORDS)} 个红利/蓝筹/白酒/银行/保险/煤炭/电力/中字头关键词",
+        f"- 样本范围：主板命中 {breakdown['main_board']} / 预设命中 {breakdown['preset']} / "
+        f"关键词命中 {breakdown['keyword']} / 去重合计 {breakdown['union']}",
         f"- 实际参与情绪计算：**{o['total']}** 条",
         "",
         "## 整体情绪",
@@ -306,6 +350,44 @@ def render_md(summary, breakdown, top_comments):
         )
     lines.append("")
 
+    # 小登 vs 老登 对照（同窗口期，取小登日报 JSON 的 overall 字段拼表）
+    xiaodeng_json = SCHEDULE_DIR / "output" / f"sentiment-xiaodeng-{TODAY}.json"
+    if xiaodeng_json.exists():
+        try:
+            xd = json.loads(xiaodeng_json.read_text(encoding="utf-8"))
+            xd_o = xd.get("summary", {}).get("overall", {})
+            if xd_o:
+                lines.append("## 小登 vs 老登 对照")
+                lines.append("")
+                lines.append("| 板块 | 评论数 | 看好% | 中立% | 看跌% | 平均得分 | 高赞看好 | 高赞看跌 |")
+                lines.append("|------|--------|-------|-------|-------|----------|----------|----------|")
+                lines.append(
+                    f"| 小登(硬科技) | {xd_o.get('total', 0)} | {xd_o.get('看好_pct', 0)}% | "
+                    f"{xd_o.get('中立_pct', 0)}% | {xd_o.get('看跌_pct', 0)}% | "
+                    f"{xd_o.get('score_avg', 0.0)} | {xd_o.get('high_like_pos', 0)} | "
+                    f"{xd_o.get('high_like_neg', 0)} |"
+                )
+                lines.append(
+                    f"| 老登(蓝筹/红利) | {o['total']} | {o['看好_pct']}% | "
+                    f"{o['中立_pct']}% | {o['看跌_pct']}% | {o['score_avg']} | "
+                    f"{o['high_like_pos']} | {o['high_like_neg']} |"
+                )
+                # 同向 / 反向判断
+                xd_score = xd_o.get("score_avg", 0.0) or 0.0
+                ld_score = o["score_avg"]
+                if (xd_score > 0.05 and ld_score > 0.05) or (xd_score < -0.05 and ld_score < -0.05):
+                    lines.append("")
+                    lines.append("- **同向**：小登与老登当日情绪方向一致（均偏多或均偏空）")
+                elif (xd_score > 0.05 and ld_score < -0.05) or (xd_score < -0.05 and ld_score > 0.05):
+                    lines.append("")
+                    lines.append("- **反向**：小登与老登当日情绪方向相反（疑似风格切换）")
+                else:
+                    lines.append("")
+                    lines.append("- **中性**：小登与老登当日至少一方处于中性区间，无明显方向差")
+                lines.append("")
+        except (json.JSONDecodeError, KeyError, OSError) as e:
+            log(f"  跳过小登对照（解析失败）: {e}")
+
     # 按平台
     lines.append("## 按平台拆分")
     lines.append("")
@@ -339,8 +421,8 @@ def render_md(summary, breakdown, top_comments):
     lines.append("")
     lines.append("- 评论表：`db/comments.db.comments`（按 `created_at` 在窗口内过滤）")
     lines.append("- 情绪模型：`jobs/sentiment_analyzer/llm_sentiment.SentimentAnalyzer`（LLM / DeepSeek）")
-    lines.append("- 关键词集合：科技/AI/人工智能/半导体/芯片/新能源/创业板/科创板/小盘/成长/互联网/腾讯/中芯/宁德/泡泡玛特/蜜雪/新能源车/锂电池/光模块/算力/大模型/GPU/CPU/存储/消费电子/结构牛/科创/锂电/光伏/机器人/智能驾驶")
-    lines.append("- 预设标的：`data/sections/consumer-tech.md`（腾讯/中芯/宁德/蜜雪/泡泡玛特）")
+    lines.append(f"- 关键词集合：{len(KEYWORDS)} 个红利/蓝筹/白酒/银行/保险/煤炭/电力/中字头词 + 风格词")
+    lines.append("- 预设标的：`data/sections/laodeng.md`（上证 50/300/500/黄金 ETF + 工建中招交 + 茅台五粮液 + 长江电力 + 神华，共 13 个 symbol）")
     return "\n".join(lines)
 
 
@@ -388,7 +470,7 @@ def render_html(summary, breakdown, top_comments):
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>散户对科技股(小登股)情绪报告 — {TODAY}</title>
+<title>散户对老登股(主板蓝筹/红利)情绪报告 — {TODAY}</title>
 <style>
   body {{ font-family: -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
           margin:0;padding:24px;background:#f9fafb;color:#111827; }}
@@ -417,17 +499,17 @@ def render_html(summary, breakdown, top_comments):
 </head>
 <body>
 <div class="container">
-  <h1>散户对科技股(小登股)情绪报告 — {TODAY}</h1>
+  <h1>散户对老登股(主板蓝筹/红利)情绪报告 — {TODAY}</h1>
   <div class="meta">
     时间窗口（CST）：{WINDOW_START.isoformat()} ~ {WINDOW_END.isoformat()}
-    &nbsp;·&nbsp; symbol 命中 {breakdown['symbol_pattern']} / 关键词命中 {breakdown['keyword']} / 去重 {breakdown['union']} &nbsp;·&nbsp; 实际分析 {o['total']} 条
+    &nbsp;·&nbsp; 主板 {breakdown['main_board']} / 预设 {breakdown['preset']} / 关键词 {breakdown['keyword']} / 去重 {breakdown['union']} &nbsp;·&nbsp; 实际分析 {o['total']} 条
     &nbsp;·&nbsp; 报告生成：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
   </div>
   <div class="kpis">
     <div class="kpi"><div class="label">样本评论</div><div class="value">{o['total']}</div></div>
     <div class="kpi positive"><div class="label">看好</div><div class="value">{o['看好']} ({pos_pct}%)</div></div>
     <div class="kpi neutral"><div class="label">中立</div><div class="value">{o['中立']} ({o['中立_pct']}%)</div></div>
-    <div class="kpi negative"><div class="label">看跌</div><div class="value">{o['看跌']} ({neg_pct}%)</div></div>
+    <div class="kpi negative"><div class="label">看跌</div><div class="value">{o['看跌']} ({o['看跌_pct']}%)</div></div>
   </div>
   <h2>整体情绪 <span class="mood-pill">{mood}</span></h2>
   <ul>
@@ -447,7 +529,7 @@ def render_html(summary, breakdown, top_comments):
     <tbody>{rows}</tbody>
   </table>
   <p class="note">
-    数据源：<code>db/comments.db.comments</code>；情绪模型：<code>jobs/sentiment_analyzer/llm_sentiment.SentimentAnalyzer</code>。
+    数据源：<code>db/comments.db.comments</code>；情绪模型：<code>jobs.sentiment_analyzer.llm_sentiment.SentimentAnalyzer</code>。
   </p>
 </div>
 </body>
@@ -472,13 +554,13 @@ def render_excel(path, summary, breakdown, top_comments):
     thin = Side(border_style="thin", color="999999")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
 
-    ws["A1"] = f"散户对科技股(小登股)情绪报告 — {TODAY}"
+    ws["A1"] = f"散户对老登股(主板蓝筹/红利)情绪报告 — {TODAY}"
     ws["A1"].font = Font(bold=True, size=14)
     ws.merge_cells("A1:F1")
     ws["A2"] = "窗口(CST)"
     ws["B2"] = f"{WINDOW_START.isoformat()} ~ {WINDOW_END.isoformat()}"
     ws["A3"] = "样本口径"
-    ws["B3"] = "symbol SH688/SZ300/BJ8 ∪ 关键词"
+    ws["B3"] = "SH600/SH601/SH603 ∪ laodeng.md 12 标的 ∪ 关键词"
     ws["A4"] = "样本数"
     ws["B4"] = summary["overall"]["total"]
 
@@ -563,7 +645,7 @@ def render_excel(path, summary, breakdown, top_comments):
         c.border = border
     for i, r in enumerate(top_comments, start=2):
         sentiment = r.get("llm_sentiment") or r.get("effective_sentiment") or "中性"
-        label = {"正面": "看好", "中性": "中立", "负面": "看跌"}.get(sentiment, "中立")
+        label = {"正面": "看好", "中性": "中立", "负面": "看跌"}.get(sentiment, "中性")
         score = r.get("llm_score") or r.get("sentiment_score") or 0.0
         try:
             score = float(score)
@@ -600,16 +682,16 @@ def main():
     out_dir = SCHEDULE_DIR / "output"
     out_dir.mkdir(exist_ok=True)
 
-    log("=== 散户对科技股(小登股)情绪分析 ===")
+    log("=== 散户对老登股(主板蓝筹/红利)情绪分析 ===")
     log(f"窗口: {WINDOW_START.isoformat()} ~ {WINDOW_END.isoformat()}")
 
     log("[1/4] 统计命中口径 ...")
-    breakdown = fetch_xiaodeng_breakdown()
-    log(f"  symbol 模式: {breakdown['symbol_pattern']}, "
+    breakdown = fetch_laodeng_breakdown()
+    log(f"  主板: {breakdown['main_board']}, 预设: {breakdown['preset']}, "
         f"关键词: {breakdown['keyword']}, 去重合计: {breakdown['union']}")
 
     log("[2/4] 提取命中评论 ...")
-    records = fetch_xiaodeng()
+    records = fetch_laodeng()
     log(f"  取到 {len(records)} 条评论")
 
     log("[3/4] LLM 情绪分析 ...")
@@ -624,20 +706,20 @@ def main():
     top.sort(key=lambda r: -(r.get("likes") or 0))
 
     md = render_md(summary, breakdown, top)
-    md_file = out_dir / f"sentiment-xiaodeng-{TODAY}.md"
+    md_file = out_dir / f"sentiment-laodeng-{TODAY}.md"
     md_file.write_text(md, encoding="utf-8")
     log(f"  Saved: {md_file}")
 
-    html_file = out_dir / f"sentiment-xiaodeng-{TODAY}.html"
+    html_file = out_dir / f"sentiment-laodeng-{TODAY}.html"
     html_file.write_text(render_html(summary, breakdown, top), encoding="utf-8")
     log(f"  Saved: {html_file}")
 
-    xlsx_file = out_dir / f"sentiment-xiaodeng-{TODAY}.xlsx"
+    xlsx_file = out_dir / f"sentiment-laodeng-{TODAY}.xlsx"
     render_excel(xlsx_file, summary, breakdown, top)
     log(f"  Saved: {xlsx_file}")
 
     # JSON summary
-    json_file = out_dir / f"sentiment-xiaodeng-{TODAY}.json"
+    json_file = out_dir / f"sentiment-laodeng-{TODAY}.json"
     json_file.write_text(
         json.dumps(
             {

@@ -61,10 +61,14 @@ def fetch_in_window(window_start, window_end):
 
 
 def summarize(records):
-    """Return summary statistics per platform + overall."""
+    """Return summary statistics per platform + overall.
+
+    score_avg 按 likes+1 加权: 0 赞权重 1, 100 赞权重 101。占比仍按条数。
+    """
     out = {"total": len(records), "by_platform": {}, "overall": {}}
     counts = {"正面": 0, "中性": 0, "负面": 0}
-    score_sum = 0.0
+    score_weighted_sum = 0.0
+    weight_sum = 0.0
     high_like_total = 0
     high_like_pos = 0
     high_like_neg = 0
@@ -76,8 +80,10 @@ def summarize(records):
             score = float(score)
         except (TypeError, ValueError):
             score = 0.0
-        score_sum += score
         likes = r.get("likes") or 0
+        weight = likes + 1
+        score_weighted_sum += score * weight
+        weight_sum += weight
         if likes > 10:
             high_like_total += 1
             if s == "正面":
@@ -92,8 +98,8 @@ def summarize(records):
             "positive_pct": round(100 * counts.get("正面", 0) / out["total"], 1),
             "neutral_pct": round(100 * counts.get("中性", 0) / out["total"], 1),
             "negative_pct": round(100 * counts.get("负面", 0) / out["total"], 1),
-            "score_avg": round(score_sum / out["total"], 3),
-            "score_sum": round(score_sum, 3),
+            "score_avg": round(score_weighted_sum / weight_sum, 3) if weight_sum else 0.0,
+            "score_sum": round(score_weighted_sum, 3),
             "high_like_total": high_like_total,
             "high_like_pos": high_like_pos,
             "high_like_neg": high_like_neg,
@@ -107,6 +113,7 @@ def summarize(records):
     for p, lst in by_p.items():
         c = {"正面": 0, "中性": 0, "负面": 0}
         ss = 0.0
+        ws = 0.0
         hl_total = 0
         hl_pos = 0
         hl_neg = 0
@@ -118,8 +125,10 @@ def summarize(records):
                 score = float(score)
             except (TypeError, ValueError):
                 score = 0.0
-            ss += score
             likes = r.get("likes") or 0
+            weight = likes + 1
+            ss += score * weight
+            ws += weight
             if likes > 10:
                 hl_total += 1
                 if s == "正面":
@@ -135,7 +144,7 @@ def summarize(records):
             "positive_pct": round(100 * c.get("正面", 0) / n, 1) if n else 0,
             "neutral_pct": round(100 * c.get("中性", 0) / n, 1) if n else 0,
             "negative_pct": round(100 * c.get("负面", 0) / n, 1) if n else 0,
-            "score_avg": round(ss / n, 3) if n else 0.0,
+            "score_avg": round(ss / ws, 3) if ws else 0.0,
             "high_like_total": hl_total,
             "high_like_pos": hl_pos,
             "high_like_neg": hl_neg,

@@ -1,0 +1,477 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - list [ref=e5]:
+      - listitem [ref=e6]:
+        - link "首页" [ref=e7] [cursor=pointer]:
+          - /url: //www.bilibili.com
+          - img [ref=e8]
+          - generic [ref=e10]:
+            - generic [ref=e11]: 首页
+            - img [ref=e12]
+      - listitem [ref=e15]:
+        - link "番剧" [ref=e16] [cursor=pointer]:
+          - /url: //www.bilibili.com/anime/
+      - listitem [ref=e17]:
+        - link "直播" [ref=e18] [cursor=pointer]:
+          - /url: //live.bilibili.com
+      - listitem [ref=e19]:
+        - link "游戏中心" [ref=e20] [cursor=pointer]:
+          - /url: //game.bilibili.com/platform
+      - listitem [ref=e21]:
+        - link "会员购" [ref=e22] [cursor=pointer]:
+          - /url: //show.bilibili.com/platform/home.html?msource=pc_web
+      - listitem [ref=e23]:
+        - link "漫画" [ref=e24] [cursor=pointer]:
+          - /url: //manga.bilibili.com?from=bill_top_mnav
+      - listitem [ref=e25]:
+        - link "赛事" [ref=e26] [cursor=pointer]:
+          - /url: //www.bilibili.com/match/home/
+      - listitem
+    - list [ref=e27]:
+      - listitem [ref=e28] [cursor=pointer]:
+        - listitem [ref=e29]:
+          - generic [ref=e31]: 登录
+          - generic [ref=e34]:
+            - paragraph [ref=e35]: 登录后你可以：
+            - generic [ref=e36]:
+              - generic [ref=e37]:
+                - img [ref=e38]
+                - generic [ref=e42]: 免费看高清视频
+              - generic [ref=e43]:
+                - img [ref=e44]
+                - generic [ref=e47]: 多端同步播放记录
+              - generic [ref=e48]:
+                - img [ref=e49]
+                - generic [ref=e55]: 发表弹幕/评论
+              - generic [ref=e56]:
+                - img [ref=e57]
+                - generic [ref=e60]: 热门番剧影视看不停
+            - generic [ref=e61]: 立即登录
+            - generic [ref=e62]: 首次使用？ 点我注册
+      - listitem [ref=e63] [cursor=pointer]:
+        - listitem [ref=e65]:
+          - link [ref=e66]:
+            - /url: //account.bilibili.com/big
+            - img [ref=e67]
+      - listitem [ref=e71] [cursor=pointer]:
+        - img [ref=e73]
+      - listitem [ref=e76] [cursor=pointer]:
+        - img [ref=e78]
+      - listitem [ref=e84] [cursor=pointer]:
+        - img [ref=e86]
+      - listitem [ref=e89] [cursor=pointer]:
+        - img [ref=e91]
+      - listitem [ref=e93] [cursor=pointer]:
+        - img [ref=e95]
+      - listitem [ref=e99] [cursor=pointer]:
+        - listitem [ref=e100]:
+          - img [ref=e103]
+  - generic [ref=e108]:
+    - generic [ref=e109]:
+      - generic [ref=e113]:
+        - img [ref=e114]
+        - img [ref=e117] [cursor=pointer]
+        - textbox "输入关键字搜索" [ref=e119]: _向阳阳阳阳
+        - button "搜索" [ref=e120] [cursor=pointer]
+      - navigation [ref=e123]:
+        - list [ref=e124]:
+          - listitem [ref=e125]:
+            - generic [ref=e127] [cursor=pointer]: 综合
+          - listitem [ref=e128]:
+            - generic [ref=e129] [cursor=pointer]:
+              - generic [ref=e130]: 视频
+              - generic [ref=e131]: 99+
+          - listitem [ref=e132]:
+            - generic [ref=e133] [cursor=pointer]:
+              - generic [ref=e134]: 番剧
+              - generic [ref=e135]: "0"
+          - listitem [ref=e136]:
+            - generic [ref=e137] [cursor=pointer]:
+              - generic [ref=e138]: 影视
+              - generic [ref=e139]: "0"
+          - listitem [ref=e140]:
+            - generic [ref=e141] [cursor=pointer]:
+              - generic [ref=e142]: 直播
+              - generic [ref=e143]: "4"
+          - listitem [ref=e144]:
+            - generic [ref=e145] [cursor=pointer]:
+              - generic [ref=e146]: 专栏
+              - generic [ref=e147]: 99+
+          - listitem [ref=e148]:
+            - generic [ref=e149] [cursor=pointer]:
+              - generic [ref=e150]: 用户
+              - generic [ref=e151]: 99+
+      - separator [ref=e153]
+    - generic [ref=e156]:
+      - generic [ref=e159]:
+        - generic [ref=e160]:
+          - button "默认排序" [ref=e161] [cursor=pointer]
+          - button "粉丝数由高到低" [ref=e162] [cursor=pointer]
+          - button "粉丝数由低到高" [ref=e163] [cursor=pointer]
+          - button "Lv等级由高到低" [ref=e164] [cursor=pointer]
+          - button "Lv等级由低到高" [ref=e165] [cursor=pointer]
+        - button "更多筛选" [ref=e166] [cursor=pointer]:
+          - text: 更多筛选
+          - img [ref=e167]
+      - generic [ref=e169]:
+        - generic [ref=e170]:
+          - generic [ref=e172]:
+            - link [ref=e173] [cursor=pointer]:
+              - /url: //space.bilibili.com/3706966528494365
+            - generic [ref=e179]:
+              - heading "_向阳阳阳阳" [level=2] [ref=e180]:
+                - link "_向阳阳阳阳" [ref=e181] [cursor=pointer]:
+                  - /url: //space.bilibili.com/3706966528494365
+                - img [ref=e182]
+              - paragraph [ref=e185]: 1.4万粉丝 · 47个视频 知行合一。
+              - button "+ 关注" [ref=e187] [cursor=pointer]
+          - generic [ref=e189]:
+            - link [ref=e190] [cursor=pointer]:
+              - /url: //space.bilibili.com/3707007917886176
+            - generic [ref=e196]:
+              - heading "__向阳阳阳阳" [level=2] [ref=e197]:
+                - link "__向阳阳阳阳" [ref=e198] [cursor=pointer]:
+                  - /url: //space.bilibili.com/3707007917886176
+                - img [ref=e199]
+              - paragraph [ref=e202]: 18粉丝 · 1个视频 主号向阳回复不及，回关交流学习解答。
+              - button "+ 关注" [ref=e204] [cursor=pointer]
+          - generic [ref=e206]:
+            - link [ref=e207] [cursor=pointer]:
+              - /url: //space.bilibili.com/3706969984600803
+            - generic [ref=e213]:
+              - heading "_向阳阳阳阳-" [level=2] [ref=e214]:
+                - link "_向阳阳阳阳-" [ref=e215] [cursor=pointer]:
+                  - /url: //space.bilibili.com/3706969984600803
+                - img [ref=e216]
+              - paragraph [ref=e219]: 9粉丝 · 7个视频 已建交流裙 粉丝优先！有不懂的票，统一后台问我
+              - button "+ 关注" [ref=e221] [cursor=pointer]
+          - generic [ref=e223]:
+            - link [ref=e224] [cursor=pointer]:
+              - /url: //space.bilibili.com/3546655072717643
+            - generic [ref=e230]:
+              - heading "李向阳阳阳阳" [level=2] [ref=e231]:
+                - link "李向阳阳阳阳" [ref=e232] [cursor=pointer]:
+                  - /url: //space.bilibili.com/3546655072717643
+                - img [ref=e233]
+              - paragraph [ref=e236]: "5粉丝 · 10个视频 呃呃…′～`"
+              - button "+ 关注" [ref=e238] [cursor=pointer]
+          - generic [ref=e240]:
+            - link [ref=e241] [cursor=pointer]:
+              - /url: //space.bilibili.com/3546702613056023
+            - generic [ref=e247]:
+              - heading "向阳视频" [level=2] [ref=e248]:
+                - link "向阳视频" [ref=e249] [cursor=pointer]:
+                  - /url: //space.bilibili.com/3546702613056023
+                - img [ref=e250]
+              - paragraph [ref=e253]: 8063粉丝 · 0个视频 阳光报向阳视频官方账号
+              - button "+ 关注" [ref=e255] [cursor=pointer]
+          - generic [ref=e257]:
+            - link [ref=e258] [cursor=pointer]:
+              - /url: //space.bilibili.com/91220874
+            - generic [ref=e264]:
+              - heading "向阳天官方" [level=2] [ref=e265]:
+                - link "向阳天官方" [ref=e266] [cursor=pointer]:
+                  - /url: //space.bilibili.com/91220874
+                - img [ref=e267]
+              - paragraph [ref=e270]: 258粉丝 · 160个视频 向阳天官方账号
+              - button "+ 关注" [ref=e272] [cursor=pointer]
+          - generic [ref=e274]:
+            - link [ref=e275] [cursor=pointer]:
+              - /url: //space.bilibili.com/402735396
+            - generic [ref=e281]:
+              - heading "佳木斯向阳区党建" [level=2] [ref=e282]:
+                - link "佳木斯向阳区党建" [ref=e283] [cursor=pointer]:
+                  - /url: //space.bilibili.com/402735396
+                - img [ref=e284]
+              - paragraph [ref=e287]: 93粉丝 · 4个视频 向阳区党建官方账号
+              - button "+ 关注" [ref=e289] [cursor=pointer]
+          - generic [ref=e291]:
+            - link [ref=e292] [cursor=pointer]:
+              - /url: //space.bilibili.com/1449832385
+            - generic [ref=e298]:
+              - heading "一路向阳旅行" [level=2] [ref=e299]:
+                - link "一路向阳旅行" [ref=e300] [cursor=pointer]:
+                  - /url: //space.bilibili.com/1449832385
+                - img [ref=e301]
+              - paragraph [ref=e304]: 45粉丝 · 4个视频 额尔古纳国际旅行社一路向阳旅行分公司
+              - button "+ 关注" [ref=e306] [cursor=pointer]
+          - generic [ref=e308]:
+            - link [ref=e309] [cursor=pointer]:
+              - /url: //space.bilibili.com/1695222025
+            - generic [ref=e315]:
+              - heading "长安欧尚贵阳正方向" [level=2] [ref=e316]:
+                - link "长安欧尚贵阳正方向" [ref=e317] [cursor=pointer]:
+                  - /url: //space.bilibili.com/1695222025
+                - img [ref=e318]
+              - paragraph [ref=e321]: 39粉丝 · 258个视频 贵阳正方向汽车销售有限公司官方账号
+              - button "+ 关注" [ref=e323] [cursor=pointer]
+          - generic [ref=e325]:
+            - link [ref=e326] [cursor=pointer]:
+              - /url: //space.bilibili.com/492862
+            - generic [ref=e332]:
+              - heading "阳向心美Official" [level=2] [ref=e333]:
+                - link "阳向心美Official" [ref=e334] [cursor=pointer]:
+                  - /url: //space.bilibili.com/492862
+                - img [ref=e335]
+              - paragraph [ref=e338]: 15.0万粉丝 · 481个视频 bilibili 直播高能主播
+              - button "+ 关注" [ref=e340] [cursor=pointer]
+          - generic [ref=e342]:
+            - link [ref=e343] [cursor=pointer]:
+              - /url: //space.bilibili.com/1694351351
+            - generic [ref=e349]:
+              - heading "向阳Hihi" [level=2] [ref=e350]:
+                - link "向阳Hihi" [ref=e351] [cursor=pointer]:
+                  - /url: //space.bilibili.com/1694351351
+                - img [ref=e352]
+              - paragraph [ref=e355]: 1.7万粉丝 · 335个视频 bilibili直播高能主播
+              - button "+ 关注" [ref=e357] [cursor=pointer]
+          - generic [ref=e359]:
+            - link [ref=e360] [cursor=pointer]:
+              - /url: //space.bilibili.com/1897656334
+            - generic [ref=e366]:
+              - heading "向阳-今天读了吗" [level=2] [ref=e367]:
+                - link "向阳-今天读了吗" [ref=e368] [cursor=pointer]:
+                  - /url: //space.bilibili.com/1897656334
+                - img [ref=e369]
+              - paragraph [ref=e372]: 6618粉丝 · 67个视频 作家，《今天读了吗？》主讲人
+              - button "+ 关注" [ref=e374] [cursor=pointer]
+          - generic [ref=e376]:
+            - link [ref=e377] [cursor=pointer]:
+              - /url: //space.bilibili.com/3537113423284990
+            - generic [ref=e383]:
+              - heading "宫向阳教练" [level=2] [ref=e384]:
+                - link "宫向阳教练" [ref=e385] [cursor=pointer]:
+                  - /url: //space.bilibili.com/3537113423284990
+                - img [ref=e386]
+              - paragraph [ref=e389]: 22.2万粉丝 · 145个视频 一个平凡人，一名普通的教练员！ 800米1500米国家级运动健将 中长跑马拉松教练员
+              - button "+ 关注" [ref=e391] [cursor=pointer]
+          - generic [ref=e393]:
+            - link [ref=e394] [cursor=pointer]:
+              - /url: //space.bilibili.com/688498825
+            - generic [ref=e400]:
+              - heading "魔术向阳" [level=2] [ref=e401]:
+                - link "魔术向阳" [ref=e402] [cursor=pointer]:
+                  - /url: //space.bilibili.com/688498825
+                - img [ref=e403]
+              - paragraph [ref=e406]: 8.3万粉丝 · 833个视频 向阳而生 非专业魔术师 所有作品仅供交流
+              - button "+ 关注" [ref=e408] [cursor=pointer]
+          - generic [ref=e410]:
+            - link [ref=e411] [cursor=pointer]:
+              - /url: //space.bilibili.com/1896538975
+            - generic [ref=e417]:
+              - heading "向阳而生920" [level=2] [ref=e418]:
+                - link "向阳而生920" [ref=e419] [cursor=pointer]:
+                  - /url: //space.bilibili.com/1896538975
+                - img [ref=e420]
+              - paragraph [ref=e423]: 6.8万粉丝 · 261个视频
+              - button "+ 关注" [ref=e425] [cursor=pointer]
+          - generic [ref=e427]:
+            - link [ref=e428] [cursor=pointer]:
+              - /url: //space.bilibili.com/3546910442916234
+            - generic [ref=e434]:
+              - heading "小草向太阳" [level=2] [ref=e435]:
+                - link "小草向太阳" [ref=e436] [cursor=pointer]:
+                  - /url: //space.bilibili.com/3546910442916234
+                - img [ref=e437]
+              - paragraph [ref=e440]: 5.9万粉丝 · 77个视频 吃好 过好 玩好 开心最重要 梦想带太爷坐上飞机，去北京看天安门 @夕阳下的小草孩，大家不要误会了哈 v:bkangle6（备注来意）
+              - button "+ 关注" [ref=e442] [cursor=pointer]
+          - generic [ref=e444]:
+            - link [ref=e445] [cursor=pointer]:
+              - /url: //space.bilibili.com/3546769598188368
+            - generic [ref=e451]:
+              - heading "dry向阳而生" [level=2] [ref=e452]:
+                - link "dry向阳而生" [ref=e453] [cursor=pointer]:
+                  - /url: //space.bilibili.com/3546769598188368
+                - img [ref=e454]
+              - paragraph [ref=e457]: 5.6万粉丝 · 199个视频
+              - button "+ 关注" [ref=e459] [cursor=pointer]
+          - generic [ref=e461]:
+            - link [ref=e462] [cursor=pointer]:
+              - /url: //space.bilibili.com/558049066
+            - generic [ref=e468]:
+              - heading "向阳老师讲考研" [level=2] [ref=e469]:
+                - link "向阳老师讲考研" [ref=e470] [cursor=pointer]:
+                  - /url: //space.bilibili.com/558049066
+                - img [ref=e471]
+              - paragraph [ref=e474]: 4.3万粉丝 · 233个视频
+              - button "+ 关注" [ref=e476] [cursor=pointer]
+          - generic [ref=e478]:
+            - link [ref=e479] [cursor=pointer]:
+              - /url: //space.bilibili.com/1845972
+            - generic [ref=e485]:
+              - heading "陽向葵的向日葵" [level=2] [ref=e486]:
+                - link "陽向葵的向日葵" [ref=e487] [cursor=pointer]:
+                  - /url: //space.bilibili.com/1845972
+                - img [ref=e488]
+              - paragraph [ref=e491]: 4.0万粉丝 · 1071个视频 hnst生肉搬运~熟肉@堰代ミコ搬运 @周防パトラ搬运 @西園寺メアリ搬運 @島村シャルロット搬运
+              - button "+ 关注" [ref=e493] [cursor=pointer]
+          - generic [ref=e495]:
+            - link [ref=e496] [cursor=pointer]:
+              - /url: //space.bilibili.com/28185493
+            - generic [ref=e502]:
+              - heading "向阳而生的阿包" [level=2] [ref=e503]:
+                - link "向阳而生的阿包" [ref=e504] [cursor=pointer]:
+                  - /url: //space.bilibili.com/28185493
+                - img [ref=e505]
+              - paragraph [ref=e508]: 4.0万粉丝 · 38个视频 啥基础没有垃圾画画人一个 就是喜欢画画感谢关注? 我很辣鸡但是我会努力的 那个笔刷在以前有个视频有讲过哦！可以翻翻
+              - button "+ 关注" [ref=e510] [cursor=pointer]
+          - generic [ref=e512]:
+            - link [ref=e513] [cursor=pointer]:
+              - /url: //space.bilibili.com/385054416
+            - generic [ref=e519]:
+              - heading "向阳柚" [level=2] [ref=e520]:
+                - link "向阳柚" [ref=e521] [cursor=pointer]:
+                  - /url: //space.bilibili.com/385054416
+                - img [ref=e522]
+              - paragraph [ref=e525]: 3.7万粉丝 · 110个视频 记录我的排球生活
+              - button "+ 关注" [ref=e527] [cursor=pointer]
+          - generic [ref=e529]:
+            - link [ref=e530] [cursor=pointer]:
+              - /url: //space.bilibili.com/630550280
+            - generic [ref=e536]:
+              - heading "向阳的心理分享" [level=2] [ref=e537]:
+                - link "向阳的心理分享" [ref=e538] [cursor=pointer]:
+                  - /url: //space.bilibili.com/630550280
+                - img [ref=e539]
+              - paragraph [ref=e542]: 3.4万粉丝 · 180个视频 中国政法大学应用心理学硕士 理论取向：精神动力学和现象学 我们不能用制造问题时的思维水平来解决问题
+              - button "+ 关注" [ref=e544] [cursor=pointer]
+          - generic [ref=e546]:
+            - link [ref=e547] [cursor=pointer]:
+              - /url: //space.bilibili.com/638265349
+            - generic [ref=e553]:
+              - heading "向阳而生193" [level=2] [ref=e554]:
+                - link "向阳而生193" [ref=e555] [cursor=pointer]:
+                  - /url: //space.bilibili.com/638265349
+                - img [ref=e556]
+              - paragraph [ref=e559]: 2.9万粉丝 · 5个视频 谢谢你那么可爱还来看我
+              - button "+ 关注" [ref=e561] [cursor=pointer]
+          - generic [ref=e563]:
+            - link [ref=e564] [cursor=pointer]:
+              - /url: //space.bilibili.com/497875213
+            - generic [ref=e570]:
+              - heading "生产阳光的向日葵" [level=2] [ref=e571]:
+                - link "生产阳光的向日葵" [ref=e572] [cursor=pointer]:
+                  - /url: //space.bilibili.com/497875213
+                - img [ref=e573]
+              - paragraph [ref=e576]: 2.9万粉丝 · 139个视频 给生活添加点调味料/爱学习爱分享 商务合作v. li8096113
+              - button "+ 关注" [ref=e578] [cursor=pointer]
+        - generic [ref=e581]:
+          - button "上一页" [disabled] [ref=e582]
+          - button "1" [ref=e583] [cursor=pointer]
+          - button "2" [ref=e584] [cursor=pointer]
+          - button "3" [ref=e585] [cursor=pointer]
+          - button "4" [ref=e586] [cursor=pointer]
+          - button "5" [ref=e587] [cursor=pointer]
+          - button "6" [ref=e588] [cursor=pointer]
+          - button "7" [ref=e589] [cursor=pointer]
+          - generic [ref=e590]: ...
+          - button "42" [ref=e591] [cursor=pointer]
+          - button "下一页" [ref=e592] [cursor=pointer]
+  - generic [ref=e597]:
+    - generic [ref=e598]:
+      - generic [ref=e599]:
+        - generic [ref=e600]: bilibili
+        - generic [ref=e601]:
+          - link "关于我们" [ref=e602] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/aboutUs.html
+          - link "联系我们" [ref=e603] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/contact.html
+          - link "用户协议" [ref=e604] [cursor=pointer]:
+            - /url: //www.bilibili.com/protocal/licence.html
+          - link "加入我们" [ref=e605] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/join.html
+          - link "隐私协议" [ref=e606] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/privacy-pc.html
+          - link "bilibili认证" [ref=e607] [cursor=pointer]:
+            - /url: //account.bilibili.com/account/official/home
+          - link "Investor Relations" [ref=e608] [cursor=pointer]:
+            - /url: //ir.bilibili.com/
+      - generic [ref=e609]:
+        - generic [ref=e610]: 传送门
+        - generic [ref=e611]:
+          - link "协议汇总" [ref=e612] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/topic/activity-cn8bxPLzz.html
+          - link "活动中心" [ref=e613] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/activity-list.html
+          - link "活动专题页" [ref=e614] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/topic_list.html
+          - link "侵权申诉" [ref=e615] [cursor=pointer]:
+            - /url: //www.bilibili.com/v/copyright/intro/
+          - link "帮助中心" [ref=e616] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/help.html
+          - link "社区中心" [ref=e617] [cursor=pointer]:
+            - /url: https://www.bilibili.com/blackboard/activity-5zJxM3spoS.html
+          - link "壁纸站" [ref=e618] [cursor=pointer]:
+            - /url: //space.bilibili.com/6823116#/album
+          - link "广告合作" [ref=e619] [cursor=pointer]:
+            - /url: //e.bilibili.com/
+          - link "名人堂" [ref=e620] [cursor=pointer]:
+            - /url: //www.bilibili.com/blackboard/activity-S1jfy69Jz.html
+          - link "MCN管理中心" [ref=e621] [cursor=pointer]:
+            - /url: //mcn.bilibili.com/studio/mcn/entry
+          - link "高级弹幕" [ref=e622] [cursor=pointer]:
+            - /url: //www.bilibili.com/video/BV1Xx411c7cH/
+          - link "品牌号官网" [ref=e623] [cursor=pointer]:
+            - /url: //b.bilibili.com/
+      - generic [ref=e624]:
+        - link "下载APP" [ref=e626] [cursor=pointer]:
+          - /url: //app.bilibili.com/
+          - img [ref=e628]
+          - paragraph [ref=e630]: 下载APP
+        - link "公益" [ref=e632] [cursor=pointer]:
+          - /url: //love.bilibili.com/
+          - img [ref=e634]
+          - paragraph [ref=e639]: 公益
+        - link "官方微博" [ref=e641] [cursor=pointer]:
+          - /url: //weibo.com/bilibiliweb
+          - img [ref=e643]
+          - paragraph [ref=e645]: 官方微博
+        - generic [ref=e647]:
+          - img [ref=e649]
+          - paragraph [ref=e651]: 官方微信
+    - generic [ref=e654]:
+      - generic [ref=e655]:
+        - link "营业执照" [ref=e656] [cursor=pointer]:
+          - /url: //i0.hdslb.com/bfs/activity-plat/static/20240516/9ccf041718e5d6d6dfaebc91b85c791c/gd85E6tDco.jpg
+        - text: 信息网络传播视听节目许可证：0910417
+        - link "网络文化经营许可证 沪网文【2025】0258-085号" [ref=e657] [cursor=pointer]:
+          - /url: //i0.hdslb.com/bfs/activity-plat/static/20260209/3b3c5705bda98d50983f6f47df360fef/K4t52YryBV.jpeg
+        - text: 广播电视节目制作经营许可证：（沪）字第01248号增值电信业务经营许可证 沪B2-20100043
+      - generic [ref=e658]:
+        - link "互联网ICP备案：沪ICP备13002172号-3" [ref=e659] [cursor=pointer]:
+          - /url: //beian.miit.gov.cn/
+        - link "出版物经营许可证 沪批字第U6699 号" [ref=e660] [cursor=pointer]:
+          - /url: //i0.hdslb.com/bfs/activity-plat/static/20240516/9ccf041718e5d6d6dfaebc91b85c791c/4ainzbFKao.jpg
+        - text: 互联网药品信息服务资格证 沪-非经营性-2022-0011营业性演出许可证 沪市文演（经）00-2253 |
+      - generic [ref=e661]:
+        - link "不良信息举报邮箱：help@bilibili.com" [ref=e662] [cursor=pointer]:
+          - /url: mailto:help@bilibili.com
+        - link "涉未成年举报邮箱：teenprotect@bilibili.com" [ref=e663] [cursor=pointer]:
+          - /url: mailto:teenprotect@bilibili.com
+        - text: 不良信息举报电话：4006262233转3
+        - link "上海互联网举报中心 |" [ref=e665] [cursor=pointer]:
+          - /url: http://www.shjbzx.cn/
+        - link "12345政务服务便民热线 |" [ref=e666] [cursor=pointer]:
+          - /url: http://www.sh12345.gov.cn/
+      - generic [ref=e667]:
+        - link "沪公网安备31011002002436号 |" [ref=e669] [cursor=pointer]:
+          - /url: http://www.beian.gov.cn/portal/registerSystemInfo?recordcode=31011002002436
+        - link "儿童色情信息举报专区 |" [ref=e670] [cursor=pointer]:
+          - /url: mailto:userreport@bilibili.com
+        - link "扫黄打非举报" [ref=e671] [cursor=pointer]:
+          - /url: https://bzpt.shdf.gov.cn/www/shouye/gzfw/wsjb/index.shtml
+      - generic [ref=e672]:
+        - link "网信算备310110764385705230011号" [ref=e673] [cursor=pointer]:
+          - /url: https://beian.cac.gov.cn/api/static/fileUpload/principalOrithm/additional/user_699bbd78-36f4-459c-aeb0-bf98a2a562d8_6185ea2c-c84c-404a-9280-c5465af05948.pdf
+        - link "网信算备310110764385702230013号" [ref=e674] [cursor=pointer]:
+          - /url: https://beian.cac.gov.cn/api/static/fileUpload/principalOrithm/additional/user_699bbd78-36f4-459c-aeb0-bf98a2a562d8_e03e6855-76a6-43fb-b799-d090e7fce25d.pdf
+      - generic [ref=e675]:
+        - text: 网上有害信息举报专区：
+        - link "中国互联网违法和不良信息举报中心" [ref=e677] [cursor=pointer]:
+          - /url: https://www.12377.cn/
+        - text: 亲爱的市民朋友，上海警方反诈劝阻电话"96110"系专门针对避免您财产被骗受损而设，请您一旦收到来电，立即接听。
+      - generic [ref=e678]: 公司名称：上海宽娱数码科技有限公司 |公司地址：上海市杨浦区政立路489号 |电话：021-25099888
+    - generic [ref=e679]:
+      - img [ref=e680]
+      - img [ref=e681]
+      - img [ref=e682]

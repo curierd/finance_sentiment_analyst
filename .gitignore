@@ -49,3 +49,8 @@ env/
 Thumbs.db
 
 intermediate
+
+output
+
+# Issues tracking files
+**/issues.md

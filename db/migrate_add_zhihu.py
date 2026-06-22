@@ -18,7 +18,7 @@ import sys
 
 DB_PATH = os.environ.get("TEST_DB_PATH") or os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "data", "sqlite", "comments.db"
+    "comments.db"
 )
 
 
