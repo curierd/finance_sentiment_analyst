@@ -7,6 +7,7 @@
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -16,6 +17,28 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 COMMENTS_DIR = PROJECT_ROOT / "comments"
 INTERMEDIATE_DIR = PROJECT_ROOT / "intermediate"
+
+
+def _resolve_tool(name):
+    """Resolve tool name to absolute path (handles npm .cmd shims on Windows)."""
+    for c in (name, f"{name}.cmd", f"{name}.exe", f"{name}.bat"):
+        p = shutil.which(c)
+        if p:
+            return p
+    return name
+
+
+def _strip_preamble(s):
+    """Skip opencli's `Active code page: 65001` prefix and any blank lines."""
+    if not s:
+        return s
+    out, skip = [], True
+    for line in s.splitlines():
+        if skip and (not line.strip() or line.startswith("Active code page")):
+            continue
+        skip = False
+        out.append(line)
+    return "\n".join(out)
 
 
 def load_stock_symbols():
@@ -84,16 +107,25 @@ def load_blogger_names():
 
 def run_opencli(args, max_retries=2):
     """运行 opencli 命令（OPENCLI_WINDOW=background 防止抢焦点），返回 JSON 结果"""
-    cmd = ["opencli"] + args
+    cmd = [_resolve_tool("opencli")] + list(args)
     env = os.environ.copy()
     env["OPENCLI_WINDOW"] = "background"
+    if sys.platform == "win32":
+        for p in (
+            r"C:\Users\sverd\AppData\Roaming\npm",
+            r"C:\Users\sverd\.local\bin",
+        ):
+            if p not in env.get("PATH", ""):
+                env["PATH"] = p + os.pathsep + env.get("PATH", "")
     for attempt in range(max_retries):
         try:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=120, env=env
+                cmd, capture_output=True, text=True, timeout=120,
+                encoding="utf-8", errors="replace", env=env,
             )
             if result.returncode == 0 and result.stdout.strip():
-                return json.loads(result.stdout)
+                cleaned = _strip_preamble(result.stdout)
+                return json.loads(cleaned)
             else:
                 print(f"  命令失败 (attempt {attempt+1}/{max_retries}): {result.stderr[:200]}")
         except Exception as e:
