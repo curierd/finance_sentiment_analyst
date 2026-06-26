@@ -57,8 +57,11 @@ CLI 用法
 
 import argparse
 import json
+import os
+import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
@@ -67,6 +70,12 @@ from typing import Optional
 DEFAULT_UA = "Mozilla/5.0 (compatible; bilibili-image-downloader/1.0)"
 USER_AGENT = "Mozilla/5.0"
 TIMEOUT = 20
+MMX_VISION_TIMEOUT = 60
+MMX_DEFAULT_PROMPT = (
+    "这张图片是什么内容？请用一两句话描述。"
+    "重点关注金融、股票、财经、行情、K线、新闻标题、表情包文字等与评论语境相关的信息。"
+    "如果只是普通表情包或风景,简略说明即可。"
+)
 
 
 def ext_from_url(url: str, default: str = ".jpg") -> str:
@@ -121,6 +130,7 @@ class ImageRecord:
     downloaded: bool = False
     reason: Optional[str] = None
     size_bytes: int = 0
+    description: Optional[str] = None
 
 
 @dataclass
@@ -296,6 +306,137 @@ def check_rpids_have_pics(
         "total_in_video": total_with_pics,
         "urls": urls,
     }
+
+
+# -----------------------------------------------------------------------------
+# mmx vision 图像理解 (mmx-cli-cn)
+# -----------------------------------------------------------------------------
+
+def _resolve_mmx() -> str:
+    """Resolve `mmx` to a Windows-executable path (no-extension bash shim)."""
+    if os.name == "nt":
+        for ext in ("", ".cmd", ".exe", ".bat"):
+            candidate = shutil.which("mmx" + ext)
+            if candidate:
+                return candidate
+    return "mmx"
+
+
+def _strip_preamble(text: str) -> str:
+    """Strip Windows cmd shim preamble like 'Active code page: 65001' that
+    appears before the real stdout. The first meaningful line starts after
+    the preamble.
+    """
+    if not text:
+        return text
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        if "Active code page" in line:
+            continue
+        if line.strip() == "":
+            continue
+        return "\n".join(lines[i:])
+    return text
+
+
+def describe_image_with_mmx(
+    image_path: Path,
+    *,
+    prompt: str = MMX_DEFAULT_PROMPT,
+    timeout: int = MMX_VISION_TIMEOUT,
+    cli: str = "mmx",
+) -> dict:
+    """Call `mmx vision describe` to understand a single image.
+
+    Returns a dict: {"ok": bool, "description": str, "error": str|None}.
+    """
+    if not image_path.exists():
+        return {"ok": False, "description": "", "error": f"image not found: {image_path}"}
+    cmd = [cli, "vision", "describe", "--image", str(image_path),
+           "--prompt", prompt, "--output", "text", "--quiet", "--non-interactive"]
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+    try:
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=timeout,
+            encoding="utf-8", errors="replace", env=env,
+        )
+    except FileNotFoundError as e:
+        return {"ok": False, "description": "", "error": f"mmx not found ({e})"}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "description": "", "error": f"mmx vision timeout ({timeout}s)"}
+    if proc.returncode != 0:
+        return {"ok": False, "description": "", "error": (proc.stderr or proc.stdout).strip()[:200]}
+    description = _strip_preamble(proc.stdout or "").strip()
+    if not description:
+        return {"ok": False, "description": "", "error": "mmx returned empty description"}
+    return {"ok": True, "description": description, "error": None}
+
+
+def describe_images_for_comments(
+    comments: list[dict],
+    *,
+    project_root: Optional[Path] = None,
+    prompt: str = MMX_DEFAULT_PROMPT,
+    errors: Optional[list[dict]] = None,
+    sleep_seconds: float = 0.0,
+) -> dict:
+    """Walk `comments[*].images[*]`, call mmx vision describe on every downloaded
+    image, and write the description back to the ImageRecord (and the first one
+    onto the parent comment as `image_description`).
+
+    Skips comments without downloaded images and images already described
+    (idempotent on re-run).
+
+    Returns
+    -------
+    {
+        "scanned": int, "described": int, "failed": int, "skipped": int,
+        "errors": list[dict]
+    }
+    """
+    project_root = project_root or Path(__file__).resolve().parent.parent.parent.parent
+    cli = _resolve_mmx()
+    stats = {"scanned": 0, "described": 0, "failed": 0, "skipped": 0, "errors": []}
+    for c in comments:
+        images = c.get("images") or []
+        for img in images:
+            stats["scanned"] += 1
+            if not img.get("downloaded"):
+                stats["skipped"] += 1
+                continue
+            if img.get("description"):
+                stats["skipped"] += 1
+                continue
+            local_rel = img.get("local_path")
+            if not local_rel:
+                stats["skipped"] += 1
+                continue
+            local_abs = (project_root / local_rel).resolve()
+            res = describe_image_with_mmx(local_abs, prompt=prompt, cli=cli)
+            if res["ok"]:
+                img["description"] = res["description"]
+                stats["described"] += 1
+            else:
+                img["description"] = None
+                stats["failed"] += 1
+                err_entry = {
+                    "stage": "image_describe",
+                    "rpid": c.get("rpid"),
+                    "path": local_rel,
+                    "error": res["error"],
+                }
+                stats["errors"].append(err_entry)
+                if errors is not None:
+                    errors.append(err_entry)
+            if sleep_seconds > 0:
+                time.sleep(sleep_seconds)
+        first_described = next(
+            (i.get("description") for i in images if i.get("description")), None
+        )
+        if first_described:
+            c["image_description"] = first_described
+    return stats
 
 
 # -----------------------------------------------------------------------------

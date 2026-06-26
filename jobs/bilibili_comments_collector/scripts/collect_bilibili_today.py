@@ -41,7 +41,10 @@ sys.stderr = __import__("io").TextIOWrapper(sys.stderr.buffer, encoding="utf-8")
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.repositories.comment_repository import CommentRepository  # noqa: E402
-from bilibili_image_downloader import download_images_for_comments  # noqa: E402
+from bilibili_image_downloader import (
+    download_images_for_comments,
+    describe_images_for_comments,
+)  # noqa: E402
 
 
 def log_issue(text):
@@ -328,6 +331,14 @@ def main():
     parser.add_argument("--import-only", action="store_true",
                         help="跳过采集, 仅从已有 JSON 导入数据库")
     parser.add_argument("--no-import", action="store_true", help="采集但不入库")
+    parser.add_argument("--describe-images", dest="describe_images",
+                        action="store_true", default=True,
+                        help="使用 mmx vision describe 理解评论配图 (默认开)")
+    parser.add_argument("--no-describe-images", dest="describe_images",
+                        action="store_false",
+                        help="跳过 mmx vision 图片理解")
+    parser.add_argument("--describe-sleep", type=float, default=0.2,
+                        help="mmx vision 调用间隔秒数 (默认 0.2)")
     args = parser.parse_args()
 
     target_date = args.date
@@ -360,6 +371,28 @@ def main():
         ),
         "window_days": args.window_days,
     }
+
+    if args.import_only:
+        existing_path = COMMENTS_DIR / f"bilibili_{target_date}.json"
+        if not existing_path.exists():
+            print(f"[FATAL] --import-only 但 JSON 不存在: {existing_path}")
+            sys.exit(1)
+        with existing_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        if args.describe_images:
+            pic_count = sum(
+                len(c.get("images") or []) for c in data.get("comments", [])
+            )
+            if pic_count:
+                print(f"[MMX] 补跑 {pic_count} 张配图理解 (mmx vision describe)...")
+                dst = describe_images_for_comments(
+                    data["comments"], project_root=PROJECT_ROOT,
+                    errors=data["errors"], sleep_seconds=args.describe_sleep,
+                )
+                print(f"[MMX] done described={dst['described']} "
+                      f"failed={dst['failed']} skipped={dst['skipped']}")
+            else:
+                print("[MMX] 现有 JSON 无配图, 跳过")
 
     if not args.import_only:
         blacklist_uids = {u["uid"] for u in blacklist}
@@ -427,6 +460,18 @@ def main():
                     c["_video"] = v
                     c["_video_bvid"] = v["bvid"]
                 attach_images(comments, v["bvid"], COMMENTS_DIR / "images" / "bilibili", data["errors"])
+                if args.describe_images:
+                    pic_with_image = sum(
+                        1 for c in comments for img in (c.get("images") or []) if img.get("downloaded")
+                    )
+                    if pic_with_image:
+                        print(f"      [MMX] 理解 {pic_with_image} 张配图 (mmx vision describe)...")
+                        dst = describe_images_for_comments(
+                            comments, project_root=PROJECT_ROOT,
+                            errors=data["errors"], sleep_seconds=args.describe_sleep,
+                        )
+                        print(f"      [MMX] done described={dst['described']} "
+                              f"failed={dst['failed']} skipped={dst['skipped']}")
                 data["comments"].extend(comments)
                 pic_count = sum(len(c.get("images") or []) for c in comments)
                 ok_count = sum(
