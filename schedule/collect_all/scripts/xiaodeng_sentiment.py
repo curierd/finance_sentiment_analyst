@@ -10,6 +10,7 @@
 import io
 import json
 import sys
+import argparse
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -25,9 +26,12 @@ from backend.database import get_db  # noqa: E402
 from jobs.sentiment_analyzer.llm_sentiment import SentimentAnalyzer  # noqa: E402
 
 CST = timezone(timedelta(hours=8))
-WINDOW_START = datetime(2026, 6, 19, 15, 0, 0, tzinfo=CST)
-WINDOW_END = datetime(2026, 6, 23, 9, 30, 0, tzinfo=CST)
-TODAY = "2026-06-20"
+DEFAULT_WINDOW_START = datetime(2026, 6, 19, 15, 0, 0, tzinfo=CST)
+DEFAULT_WINDOW_END = datetime(2026, 6, 23, 9, 30, 0, tzinfo=CST)
+DEFAULT_TODAY = "2026-06-20"
+WINDOW_START = DEFAULT_WINDOW_START
+WINDOW_END = DEFAULT_WINDOW_END
+TODAY = DEFAULT_TODAY
 
 # 小登相关关键词（科技股 / 成长股 / 科创关键词 + 预设里的 5 只标的）
 # KEYWORDS: 严格定义"小登股(科技股)"口径。
@@ -596,7 +600,33 @@ def render_excel(path, summary, breakdown, top_comments):
     wb.save(path)
 
 
+def parse_args(argv=None):
+    p = argparse.ArgumentParser(description="散户对小登股(科技/小盘)情绪分析")
+    p.add_argument("--window-start", default=None,
+                   help="窗口起点 ISO 格式（默认 2026-06-19T15:00 CST）")
+    p.add_argument("--window-end", default=None,
+                   help="窗口终点 ISO 格式（默认 2026-06-23T09:30 CST）")
+    p.add_argument("--today", default=None,
+                   help="日期标签 YYYY-MM-DD（默认 2026-06-20）")
+    return p.parse_args(argv)
+
+
+def apply_args(args):
+    """把 CLI 参数覆盖到模块级 WINDOW_START / WINDOW_END / TODAY。"""
+    global WINDOW_START, WINDOW_END, TODAY
+    if args.window_start:
+        WINDOW_START = datetime.fromisoformat(args.window_start).astimezone(CST)
+    else:
+        WINDOW_START = DEFAULT_WINDOW_START
+    if args.window_end:
+        WINDOW_END = datetime.fromisoformat(args.window_end).astimezone(CST)
+    else:
+        WINDOW_END = DEFAULT_WINDOW_END
+    TODAY = args.today or DEFAULT_TODAY
+
+
 def main():
+    apply_args(parse_args())
     out_dir = SCHEDULE_DIR / "output"
     out_dir.mkdir(exist_ok=True)
 

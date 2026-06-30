@@ -37,12 +37,18 @@ def log(msg):
 
 def fetch_in_window(window_start, window_end):
     """Fetch all comments whose created_at falls in [start, end] CST.
-    created_at stored as ISO 8601 UTC with 'Z' suffix or naive ISO.
+
+    created_at stored formats:
+      - bilibili / xueqiu / zhihu: ISO 8601 UTC (e.g. "2026-06-23T01:30:00Z")
+      - xiaohongshu: naive ISO already in CST ("2026-06-23 09:30:00")
+    We split the query per-platform to handle the timezone offset correctly.
     """
+    conn = get_db()
+    rows = []
+    # UTC-stored platforms (window CST → UTC = CST - 8h)
     ws_utc = window_start.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     we_utc = window_end.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    conn = get_db()
-    rows = conn.execute(
+    utc_rows = conn.execute(
         """
         SELECT id, platform, comment_id, author_name, content,
                likes, replies, retweets, source_url, symbol,
@@ -50,12 +56,34 @@ def fetch_in_window(window_start, window_end):
                COALESCE(sentiment_fix, sentiment) AS effective_sentiment
         FROM comments
         WHERE created_at IS NOT NULL
+          AND platform IN ('bilibili', 'xueqiu', 'zhihu')
           AND datetime(created_at) >= datetime(?, '-8 hours')
           AND datetime(created_at) <= datetime(?, '-8 hours')
-        ORDER BY platform, datetime(created_at)
         """,
         (ws_utc, we_utc),
     ).fetchall()
+    rows.extend(utc_rows)
+    # CST-stored platform (xhs: compare directly)
+    ws_cst = window_start.strftime("%Y-%m-%d %H:%M:%S")
+    we_cst = window_end.strftime("%Y-%m-%d %H:%M:%S")
+    xhs_rows = conn.execute(
+        """
+        SELECT id, platform, comment_id, author_name, content,
+               likes, replies, retweets, source_url, symbol,
+               created_at, sentiment, sentiment_score,
+               COALESCE(sentiment_fix, sentiment) AS effective_sentiment
+        FROM comments
+        WHERE created_at IS NOT NULL
+          AND platform = 'xiaohongshu'
+          AND length(created_at) >= 10
+          AND substr(created_at, 1, 4) GLOB '[0-9][0-9][0-9][0-9]'
+          AND datetime(created_at) >= datetime(?)
+          AND datetime(created_at) <= datetime(?)
+        """,
+        (ws_cst, we_cst),
+    ).fetchall()
+    rows.extend(xhs_rows)
+    rows.sort(key=lambda r: (r["platform"], r["created_at"] or ""))
     conn.close()
     return [dict(r) for r in rows]
 

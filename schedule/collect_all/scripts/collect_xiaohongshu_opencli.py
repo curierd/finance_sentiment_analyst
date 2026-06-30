@@ -39,16 +39,12 @@ INTERMEDIATE_DIR = JOB_DIR / "intermediate"
 
 CST = timezone(timedelta(hours=8))
 
-# Window: previous trading day 15:00 ~ next trading day 09:30 CST
-WINDOW_START = datetime(2026, 6, 19, 15, 0, 0, tzinfo=CST)
-WINDOW_END = datetime(2026, 6, 23, 9, 30, 0, tzinfo=CST)
-# Also include each date inside the window as a candidate key for note_id matching
-DATE_KEYS = []
-d = WINDOW_START.date()
-end = WINDOW_END.date()
-while d <= end:
-    DATE_KEYS.append(d.strftime("%Y-%m-%d"))
-    d += timedelta(days=1)
+# Default window (overridable via --window-start / --window-end on CLI).
+# Per SKILL.md the first 8 hex chars of a note_id encode the publish
+# timestamp (Unix seconds), so we can filter by date without needing
+# `created_at` from the API.
+DEFAULT_WINDOW_START = datetime(2026, 6, 25, 15, 0, 0, tzinfo=CST)
+DEFAULT_WINDOW_END = datetime(2026, 6, 26, 23, 59, 59, tzinfo=CST)
 
 OPENCLI = (
     r"C:\Users\sverd\AppData\Roaming\npm\node_modules\@jackwener\opencli\dist\src\main.js"
@@ -87,6 +83,28 @@ def strip_preamble(s):
     return "\n".join(out)
 
 
+def parse_chinese_count(v):
+    """Parse '1.3万' / '12345' / None → int. Tolerates comma / 中文 unit."""
+    if v is None or v == "":
+        return 0
+    if isinstance(v, (int, float)):
+        return int(v)
+    s = str(v).strip().replace(",", "")
+    m = re.match(r"^([0-9]+(?:\.[0-9]+)?)\s*(万|w|W)?(亿)?$", s)
+    if not m:
+        digits = re.sub(r"[^0-9.]", "", s)
+        try:
+            return int(float(digits)) if digits else 0
+        except ValueError:
+            return 0
+    base = float(m.group(1))
+    if m.group(2):  # 万
+        base *= 10_000
+    if m.group(3):  # 亿
+        base *= 100_000_000
+    return int(base)
+
+
 def note_id_to_dt(note_id):
     """First 8 hex chars of note_id = Unix seconds → datetime."""
     if not note_id or len(note_id) < 8:
@@ -98,13 +116,27 @@ def note_id_to_dt(note_id):
 
 
 def parse_blogger_list():
-    """Parse user IDs from xiaohongshu-finance-up.md."""
+    """Parse user IDs from xiaohongshu-finance-up.md.
+
+    Supports both 3-col (rank|name|id) and 2-col (name|id) tables.
+    """
     bloggers = []
+    pat3 = re.compile(r"\|\s*\d+\s*\|\s*([^|]+?)\s*\|\s*`?([0-9a-f]{20,})`?\s*\|")
+    pat2 = re.compile(r"\|\s*([^|]+?)\s*\|\s*`?([0-9a-f]{20,})`?\s*\|")
     for line in BLOGGER_LIST.read_text(encoding="utf-8").splitlines():
-        # | 1 | 小红他叔 | `61acb1f7000000001000aa34` | ...
-        m = re.match(r"\|\s*\d+\s*\|\s*([^|]+?)\s*\|\s*`?([0-9a-f]{20,})`?\s*\|", line)
-        if m:
-            bloggers.append({"name": m.group(1).strip(), "user_id": m.group(2).strip()})
+        # Skip header / divider rows (header has Chinese words; divider has ---)
+        if not line.strip().startswith("|"):
+            continue
+        m = pat3.search(line)
+        if not m:
+            m = pat2.search(line)
+        if not m:
+            continue
+        name, uid = m.group(1).strip(), m.group(2).strip()
+        # Skip header / divider text (e.g. "博主昵称" / "用户ID")
+        if name in ("博主昵称", "用户ID") or set(name) <= {"-", " "}:
+            continue
+        bloggers.append({"name": name, "user_id": uid})
     return bloggers
 
 
@@ -170,22 +202,45 @@ def relative_time_to_dt(text, now_cst):
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="OpenCli Xiaohongshu comment collector")
+    parser.add_argument("--window-start", default=None,
+                        help="Window start ISO datetime CST, e.g. 2026-06-26T15:00:00+08:00")
+    parser.add_argument("--window-end", default=None,
+                        help="Window end ISO datetime CST, e.g. 2026-06-29T23:59:59+08:00")
+    args = parser.parse_args()
+
+    window_start = (datetime.fromisoformat(args.window_start)
+                    if args.window_start else DEFAULT_WINDOW_START)
+    window_end = (datetime.fromisoformat(args.window_end)
+                  if args.window_end else DEFAULT_WINDOW_END)
+    if window_end <= window_start:
+        log(f"[FATAL] window end <= start: {window_start} ~ {window_end}")
+        return 1
+
+    date_keys = []
+    d = window_start.date()
+    end = window_end.date()
+    while d <= end:
+        date_keys.append(d.strftime("%Y-%m-%d"))
+        d += timedelta(days=1)
+    log(f"Window {window_start.isoformat()} ~ {window_end.isoformat()} "
+        f"({len(date_keys)} date keys: {date_keys[0]}~{date_keys[-1]})")
+
     COMMENTS_DIR.mkdir(exist_ok=True)
     INTERMEDIATE_DIR.mkdir(exist_ok=True)
 
     bloggers = parse_blogger_list()
     log(f"Found {len(bloggers)} bloggers from {BLOGGER_LIST.name}")
-    # Save parsed bloggers
     (INTERMEDIATE_DIR / "bloggers.json").write_text(
         json.dumps(bloggers, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    # Build per-day results
     by_date = {d: {
         "target_date": d,
         "platform": "小红书",
         "notes": [],
-    } for d in DATE_KEYS}
+    } for d in date_keys}
 
     now_cst = datetime.now(CST)
     errors = []
@@ -236,7 +291,7 @@ def main():
                 "title": title,
                 "author": name,
                 "user_id": uid,
-                "likes": int(n.get("likes", 0) or 0),
+                "likes": parse_chinese_count(n.get("likes", 0)),
                 "url": url,
                 "xsec_token": re.search(r"xsec_token=([^&]+)", url).group(1) if "xsec_token=" in url else "",
                 "comments": [],
@@ -251,7 +306,7 @@ def main():
                     "id": f"{note_id}_r{c.get('rank', 0)}",
                     "content": ctext,
                     "author": c.get("author", ""),
-                    "like_count": int(c.get("likes", 0) or 0),
+                    "like_count": parse_chinese_count(c.get("likes", 0)),
                     "create_time": ctime.strftime("%Y-%m-%d %H:%M"),
                     "ip_location": (c.get("time", "").split()[-1] if c.get("time") else ""),
                     "is_reply": bool(c.get("is_reply", False)),

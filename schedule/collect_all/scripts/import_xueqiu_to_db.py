@@ -21,6 +21,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from backend.database import get_db  # noqa: E402
 
 CST = timezone(timedelta(hours=8))
+# Default window (4-day trading window: prev close ~ next open)
 WINDOW_START = datetime(2026, 6, 19, 15, 0, 0, tzinfo=CST)
 WINDOW_END = datetime(2026, 6, 23, 9, 30, 0, tzinfo=CST)
 
@@ -154,7 +155,17 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--date", required=True, help="Date YYYY-MM-DD")
     parser.add_argument("--file", default=None, help="Specific JSON file")
+    parser.add_argument("--window-start", default=None,
+                        help="ISO 8601 CST (e.g. 2026-06-23T09:30:00+08:00)")
+    parser.add_argument("--window-end", default=None,
+                        help="ISO 8601 CST (e.g. 2026-06-24T09:30:00+08:00)")
     args = parser.parse_args()
+
+    global WINDOW_START, WINDOW_END
+    if args.window_start:
+        WINDOW_START = datetime.fromisoformat(args.window_start)
+    if args.window_end:
+        WINDOW_END = datetime.fromisoformat(args.window_end)
 
     if args.file:
         path = Path(args.file)

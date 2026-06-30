@@ -8,9 +8,8 @@ Tasks (per expectation.md):
   3. Time window: previous trading day close ~ today open
 
 Window (CST):
-  - previous trading day: 2026-06-19 (Fri) close 15:00
-  - today: 2026-06-21 (Sun) — market closed; next open 2026-06-23 09:30
-  - Window: 2026-06-19 15:00:00 ~ 2026-06-23 09:30:00 CST
+  - default: previous A-share trading day 15:00:00 ~ today 23:59:59 CST
+  - overrides: --today / --window-start / --window-end
 
 Outputs:
   - schedule/collect_all/scripts/  — orchestrator + per-platform scripts
@@ -24,6 +23,7 @@ import os
 import shutil
 import subprocess
 import sys
+import argparse
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -31,10 +31,37 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 CST = timezone(timedelta(hours=8))
-WINDOW_START = datetime(2026, 6, 19, 15, 0, 0, tzinfo=CST)
-WINDOW_END = datetime(2026, 6, 23, 9, 30, 0, tzinfo=CST)
-TODAY = "2026-06-21"
-PREV_TRADING_DAY = "2026-06-19"
+
+
+def _prev_trading_day(d):
+    """Previous A-share trading day for date `d` (Mon-Fri; Sat/Sun → Friday)."""
+    wd = d.weekday()  # Mon=0 ... Sun=6
+    if wd == 5:  # Sat → Fri
+        return d - timedelta(days=1)
+    if wd == 6:  # Sun → Fri
+        return d - timedelta(days=2)
+    if wd == 0:  # Mon → Fri
+        return d - timedelta(days=3)
+    return d - timedelta(days=1)  # Tue-Fri → previous weekday
+
+
+def _resolve_window(args):
+    """Resolve TODAY / WINDOW_START / WINDOW_END from CLI args or default to
+    `prev A-share trading day 15:00` ~ `today 23:59` CST."""
+    today_str = getattr(args, "today", None)
+    if today_str:
+        today_d = datetime.strptime(today_str, "%Y-%m-%d").date()
+    else:
+        today_d = datetime.now(CST).date()
+    prev_d = _prev_trading_day(today_d)
+    ws_default = datetime(prev_d.year, prev_d.month, prev_d.day, 15, 0, 0, tzinfo=CST)
+    we_default = datetime(today_d.year, today_d.month, today_d.day, 23, 59, 59, tzinfo=CST)
+
+    ws_str = getattr(args, "window_start", None)
+    we_str = getattr(args, "window_end", None)
+    ws = datetime.fromisoformat(ws_str) if ws_str else ws_default
+    we = datetime.fromisoformat(we_str) if we_str else we_default
+    return today_d.strftime("%Y-%m-%d"), prev_d.strftime("%Y-%m-%d"), ws, we
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 SCHEDULE_DIR = SCRIPT_DIR.parent
@@ -154,15 +181,6 @@ def check_login():
             "stderr": (r.stderr or cleaned)[:300],
         }
 
-    # B站 — bili CLI (no whoami; check by listing a user's videos)
-    r = run(["bili", "user-videos", "52764688", "-n", "1", "--json"], timeout=30)
-    status["bilibili_bili"] = {
-        "tool": "bili CLI",
-        "ok": r.returncode == 0 and r.stdout.strip().startswith(("{", "[")),
-    }
-    if not status["bilibili_bili"]["ok"]:
-        status["bilibili_bili"]["stderr"] = r.stderr[:200]
-
     # 雪球 — opencli xueqiu hot (test for valid JSON output)
     r = run(["opencli", "xueqiu", "hot", "--limit", "1", "-f", "json"], timeout=30)
     cleaned = _strip_preamble(r.stdout)
@@ -189,17 +207,6 @@ def check_login():
         "raw_excerpt": (xhs_text or "")[:300],
     }
 
-    # 小红书 — xhs CLI (test with a known note + token)
-    test_note = "6a30cd5400000000110198a0"
-    test_token = "ABzLri3FHI4eFOQ188uDzch1E4W-e056nPuxpamJxEeLM="
-    r = run(["xhs", "comments", test_note, "--xsec-token", test_token, "--json"], timeout=60)
-    status["xiaohongshu_xhs"] = {
-        "tool": "xhs CLI",
-        "ok": r.returncode == 0 and '"ok": true' in r.stdout,
-    }
-    if not status["xiaohongshu_xhs"]["ok"]:
-        status["xiaohongshu_xhs"]["stderr"] = (r.stderr or r.stdout)[:300]
-
     # 知乎 — opencli zhihu (no whoami; smoke test with search)
     r = run(["opencli", "zhihu", "search", "A股", "--limit", "1", "-f", "json"], timeout=30)
     cleaned = _strip_preamble(r.stdout)
@@ -218,23 +225,29 @@ def check_login():
     return status
 
 
-def collect_bilibili():
-    """Step 2a: B站 collection. target_date=2026-06-21, window_days=1.
+def collect_bilibili(video_pages=None, limit=None, sleep=None):
+    """Step 2a: B站 collection. target_date=TODAY, window_days=1.
 
-    This gives us videos from 2026-06-20 to 2026-06-22, including all the
-    overnight comments posted on 06-20 evening and 06-21.
+    This gives us videos from PREV_TRADING_DAY to TODAY, including all the
+    overnight comments posted on PREV_TRADING_DAY evening and TODAY.
+
+    Defaults reduced from 24 UP × 2 pages → 24 UP × 1 page (per issues.md
+    06-26: B站单平台 30+ min 仍跑不完，video-pages=1 可提速 50%)。
     """
-    log("=== Step 2a: B站 collection (target=2026-06-21, window_days=1) ===")
+    vp = video_pages if video_pages is not None else 1
+    lim = limit if limit is not None else 50
+    sl = sleep if sleep is not None else 1.5
+    log(f"=== Step 2a: B站 collection (target={TODAY}, window_days=1, video_pages={vp}) ===")
     cmd = [
         sys.executable,
         str(REPO_ROOT / "jobs/bilibili_comments_collector/scripts/collect_bilibili_today.py"),
-        "--date", "2026-06-21",
+        "--date", TODAY,
         "--window-days", "1",
-        "--video-pages", "2",
-        "--limit", "50",
-        "--sleep", "1.5",
+        "--video-pages", str(vp),
+        "--limit", str(lim),
+        "--sleep", str(sl),
     ]
-    r = run(cmd, timeout=1800)
+    r = run(cmd, timeout=3600)
     log(f"  rc={r.returncode}")
     if r.stdout:
         for line in r.stdout.split("\n")[-30:]:
@@ -268,12 +281,12 @@ def collect_xiaohongshu():
 
 def collect_xueqiu():
     """Step 2c: 雪球 collection. We use the larger limit so we capture
-    comments from 06-19 evening too (the latest 100 per stock)."""
-    log("=== Step 2c: 雪球 collection (2026-06-21, limit=100) ===")
+    comments from PREV_TRADING_DAY evening too (the latest 100 per stock)."""
+    log(f"=== Step 2c: 雪球 collection ({TODAY}, limit=100) ===")
     cmd = [
         sys.executable,
         str(REPO_ROOT / "jobs/xuqiu_comments_collector/scripts/collect_xueqiu.py"),
-        "--date", "2026-06-21",
+        "--date", TODAY,
         "--limit", "100",
     ]
     r = run(cmd, timeout=1800)
@@ -291,9 +304,15 @@ def collect_zhihu():
     strictly (created_at == target_date CST), so we run for each date in
     the window. Use a tighter timeout per day to avoid the 30-min hang
     we saw on 06-19."""
-    log("=== Step 2d: 知乎 collection (06-19 + 06-20 + 06-21) ===")
+    log(f"=== Step 2d: 知乎 collection (window {WINDOW_START.date()} ~ {WINDOW_END.date()}) ===")
     rc_ok = True
-    for date in ["2026-06-19", "2026-06-20", "2026-06-21"]:
+    d = WINDOW_START.date()
+    end_d = WINDOW_END.date()
+    date_list = []
+    while d <= end_d:
+        date_list.append(d.strftime("%Y-%m-%d"))
+        d += timedelta(days=1)
+    for date in date_list:
         log(f"  --- {date} ---")
         cmd = [
             sys.executable,
@@ -331,7 +350,8 @@ def import_all():
     # Xiaohongshu — import for each day in the window that has a JSON file
     log("  --- xiaohongshu ---")
     comments_dir = REPO_ROOT / "comments"
-    for json_path in sorted(comments_dir.glob("xiaohongshu_2026-06-*.json")):
+    pattern = f"xiaohongshu_{TODAY[:7]}-*.json"
+    for json_path in sorted(comments_dir.glob(pattern)):
         date_str = json_path.stem.replace("xiaohongshu_", "")
         log(f"  --- xiaohongshu {date_str} ---")
         r = run([
@@ -349,7 +369,7 @@ def import_all():
     cmd = [
         sys.executable,
         str(SCRIPT_DIR / "import_xueqiu_to_db.py"),
-        "--date", "2026-06-21",
+        "--date", TODAY,
     ]
     r = run(cmd, timeout=300)
     log(f"    rc={r.returncode}")
@@ -393,8 +413,39 @@ def generate_report():
 
 
 def main():
+    parser = argparse.ArgumentParser(description="All-platforms comment collection")
+    parser.add_argument("--today", default=None,
+                        help="Today date YYYY-MM-DD (default: system date CST)")
+    parser.add_argument("--window-start", default=None,
+                        help="Window start ISO datetime (default: prev trading day 15:00 CST)")
+    parser.add_argument("--window-end", default=None,
+                        help="Window end ISO datetime (default: today 23:59:59 CST)")
+    parser.add_argument("--check-login", action="store_true",
+                        help="Only run login status check")
+    parser.add_argument("--collect-only", action="store_true",
+                        help="Only run 4-platform collection")
+    parser.add_argument("--import-only", action="store_true",
+                        help="Only import collected JSONs into DB")
+    parser.add_argument("--sentiment-only", action="store_true",
+                        help="Only run sentiment analysis")
+    parser.add_argument("--report-only", action="store_true",
+                        help="Only generate report")
+    parser.add_argument("--bilibili-video-pages", type=int, default=None,
+                        help="B站 video pages per UP (default: 1)")
+    parser.add_argument("--bilibili-limit", type=int, default=None,
+                        help="B站 comments per video (default: 50)")
+    parser.add_argument("--bilibili-sleep", type=float, default=None,
+                        help="B站 sleep between requests (default: 1.5s)")
+    parser.add_argument("--skip-bilibili", action="store_true",
+                        help="Skip B站 collection (use existing JSON)")
+    args = parser.parse_args()
+
+    global TODAY, PREV_TRADING_DAY, WINDOW_START, WINDOW_END
+    TODAY, PREV_TRADING_DAY, WINDOW_START, WINDOW_END = _resolve_window(args)
+
     log(f"=== All-platforms comment collection ===")
     log(f"Window: {WINDOW_START.isoformat()} ~ {WINDOW_END.isoformat()}")
+    log(f"Today: {TODAY}  Prev trading day: {PREV_TRADING_DAY}")
     log(f"Output dir: {SCHEDULE_DIR / 'output'}")
 
     # Clear issues file
@@ -404,32 +455,46 @@ def main():
         encoding="utf-8",
     )
 
-    if "--check-login" in sys.argv:
+    if args.check_login:
         check_login()
         return
 
-    if "--collect-only" in sys.argv:
-        collect_bilibili()
+    if args.collect_only:
+        if not args.skip_bilibili:
+            collect_bilibili(
+                video_pages=args.bilibili_video_pages,
+                limit=args.bilibili_limit,
+                sleep=args.bilibili_sleep,
+            )
+        else:
+            log("=== Step 2a: B站 collection SKIPPED (--skip-bilibili) ===")
         collect_xiaohongshu()
         collect_xueqiu()
         collect_zhihu()
         return
 
-    if "--import-only" in sys.argv:
+    if args.import_only:
         import_all()
         return
 
-    if "--sentiment-only" in sys.argv:
+    if args.sentiment_only:
         run_sentiment()
         return
 
-    if "--report-only" in sys.argv:
+    if args.report_only:
         generate_report()
         return
 
     # Full pipeline
     check_login()
-    collect_bilibili()
+    if not args.skip_bilibili:
+        collect_bilibili(
+            video_pages=args.bilibili_video_pages,
+            limit=args.bilibili_limit,
+            sleep=args.bilibili_sleep,
+        )
+    else:
+        log("=== Step 2a: B站 collection SKIPPED (--skip-bilibili) ===")
     collect_xiaohongshu()
     collect_xueqiu()
     collect_zhihu()
