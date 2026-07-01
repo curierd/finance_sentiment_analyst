@@ -6,8 +6,8 @@ description: 从 B站财经 UP 主列表 (`bilibili-finance-up.md`) 抓取指定
 # B 站财经 UP 评论采集器
 
 ## 适用场景
-- 每日/隔日抓取 18 个财经 UP 主（个人，含黑名单 2 个）当日窗口内的视频评论
-- 视频列表来自 `jobs/bilibili_comments_collector/bilibili-finance-up.md`（markdown 表格，`## up黑名单` 段落会被自动跳过）
+- 每日/隔日抓取 28 个财经 UP 主（个人，含黑名单 2 个）当日窗口内的视频评论
+- 视频列表来自 `jobs/bilibili_comments_collector/bilibili-finance-up.md`（markdown 表格 `排名|UP主|UID|粉丝数`，`## up黑名单` 段落会被自动跳过）
 - 评论配图下载到 `comments/images/bilibili/<bvid>/<rpid>_<idx>.<ext>`，首张写入 DB `local_image_path`
 
 ## 公开入口

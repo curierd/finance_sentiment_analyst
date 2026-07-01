@@ -378,8 +378,9 @@ def describe_images_for_comments(
     *,
     project_root: Optional[Path] = None,
     prompt: str = MMX_DEFAULT_PROMPT,
-    errors: Optional[list[dict]] = None,
+    errors: Optional[dict] = None,
     sleep_seconds: float = 0.0,
+    max_workers: int = 4,
 ) -> dict:
     """Walk `comments[*].images[*]`, call mmx vision describe on every downloaded
     image, and write the description back to the ImageRecord (and the first one
@@ -388,16 +389,24 @@ def describe_images_for_comments(
     Skips comments without downloaded images and images already described
     (idempotent on re-run).
 
-    Returns
-    -------
-    {
-        "scanned": int, "described": int, "failed": int, "skipped": int,
-        "errors": list[dict]
-    }
+    Concurrency: mmx vision calls run in a ThreadPoolExecutor (default 4 workers)
+    — each call is an independent subprocess, so threadpool parallelism is safe
+    and dramatically faster than serial on multi-image batches. Set
+    ``max_workers=1`` to fall back to serial mode.
+
+    Parameters
+    ----------
+    errors : optional *dict* (not list) used as a counter store for collected
+        errors per comment. Keys: ``err_count`` (int). The function also appends
+        to ``errors["records"]`` so callers can inspect. If a plain ``list`` is
+        passed, we still append per-record errors for backwards compatibility.
     """
     project_root = project_root or Path(__file__).resolve().parent.parent.parent.parent
     cli = _resolve_mmx()
     stats = {"scanned": 0, "described": 0, "failed": 0, "skipped": 0, "errors": []}
+
+    # Build a flat list of (comment, image) pairs to describe.
+    targets: list[tuple[dict, dict]] = []
     for c in comments:
         images = c.get("images") or []
         for img in images:
@@ -412,25 +421,57 @@ def describe_images_for_comments(
             if not local_rel:
                 stats["skipped"] += 1
                 continue
+            targets.append((c, img))
+
+    if not targets:
+        return stats
+
+    # Concurrent mmx calls. Each worker calls describe_image_with_mmx once per
+    # image. We do NOT pipeline within a worker — subprocess.run holds the GIL
+    # on a separate process anyway, so threadpool is the simplest correct way.
+    def _call(pair):
+        c, img = pair
+        local_rel = img.get("local_path")
+        try:
             local_abs = (project_root / local_rel).resolve()
-            res = describe_image_with_mmx(local_abs, prompt=prompt, cli=cli)
-            if res["ok"]:
-                img["description"] = res["description"]
-                stats["described"] += 1
-            else:
-                img["description"] = None
-                stats["failed"] += 1
-                err_entry = {
-                    "stage": "image_describe",
-                    "rpid": c.get("rpid"),
-                    "path": local_rel,
-                    "error": res["error"],
-                }
-                stats["errors"].append(err_entry)
-                if errors is not None:
+        except Exception as e:
+            return c, img, {"ok": False, "description": "", "error": f"bad path: {e}"}
+        result = describe_image_with_mmx(local_abs, prompt=prompt, cli=cli)
+        return c, img, result
+
+    if max_workers <= 1:
+        results = [_call(t) for t in targets]
+    else:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=max_workers) as pool:
+            results = list(pool.map(_call, targets))
+
+    # Aggregate results back into the comments structure.
+    for c, img, res in results:
+        if res["ok"]:
+            img["description"] = res["description"]
+            stats["described"] += 1
+        else:
+            img["description"] = None
+            stats["failed"] += 1
+            err_entry = {
+                "stage": "image_describe",
+                "rpid": c.get("rpid"),
+                "path": img.get("local_path"),
+                "error": res["error"],
+            }
+            stats["errors"].append(err_entry)
+            if errors is not None:
+                if isinstance(errors, dict):
+                    errors.setdefault("records", []).append(err_entry)
+                else:
                     errors.append(err_entry)
-            if sleep_seconds > 0:
-                time.sleep(sleep_seconds)
+        if sleep_seconds > 0:
+            time.sleep(sleep_seconds)
+
+    # First described image per comment → parent.image_description.
+    for c in comments:
+        images = c.get("images") or []
         first_described = next(
             (i.get("description") for i in images if i.get("description")), None
         )

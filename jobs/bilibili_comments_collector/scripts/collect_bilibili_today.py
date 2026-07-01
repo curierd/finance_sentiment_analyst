@@ -339,6 +339,8 @@ def main():
                         help="跳过 mmx vision 图片理解")
     parser.add_argument("--describe-sleep", type=float, default=0.2,
                         help="mmx vision 调用间隔秒数 (默认 0.2)")
+    parser.add_argument("--describe-workers", type=int, default=4,
+                        help="mmx vision describe 并发 worker 数 (默认 4; 1=串行)")
     args = parser.parse_args()
 
     target_date = args.date
