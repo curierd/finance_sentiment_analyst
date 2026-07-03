@@ -286,11 +286,10 @@ def import_comments(comments, ups_seen, errors):
             video = c.get("_video") or {}
             up = c.get("_up") or {}
             video_title = video.get("title") or ""
-            extra = f"[视频: {video_title}]\n" if video_title else ""
             row = {
                 "platform": "bilibili",
                 "comment_id": cid,
-                "content": extra + text,
+                "content": text,
                 "author_name": c.get("author", "") or "",
                 "likes": c.get("likes", 0) or 0,
                 "up_name": up.get("name", "") or "",
@@ -398,9 +397,29 @@ def main():
 
     if not args.import_only:
         blacklist_uids = {u["uid"] for u in blacklist}
+        # Resume support: 若 partial.json 已存在, 跳过已处理的 UP
+        partial_path = INTERMEDIATE_DIR / f"bilibili_{target_date}.partial.json"
+        done_uids = set()
+        if partial_path.exists():
+            try:
+                _pd = json.loads(partial_path.read_text(encoding="utf-8"))
+                done_uids = {int(_u) for _u in _pd.get("ups_with_today_videos", []) if _u is not None}
+                if done_uids:
+                    data.update({
+                        "videos": _pd.get("videos", []),
+                        "comments": _pd.get("comments", []),
+                        "ups_with_today_videos": _pd.get("ups_with_today_videos", []),
+                        "errors": _pd.get("errors", []),
+                    })
+                    print(f"[RESUME] partial.json 已加载: {len(done_uids)} UP 完成, 跳过")
+            except (json.JSONDecodeError, OSError) as _e:
+                print(f"[RESUME] partial.json 读取失败: {_e}, 全量重跑")
         for idx, up in enumerate(ups, 1):
             if up["uid"] in blacklist_uids:
                 print(f"\n[{idx}/{len(ups)}] [SKIP] 黑名单: {up['name']}")
+                continue
+            if up["uid"] in done_uids:
+                print(f"\n[{idx}/{len(ups)}] [SKIP] 已完成: {up['name']} (UID={up['uid']})")
                 continue
             print(f"\n[{idx}/{len(ups)}] [UP] {up['name']} (UID={up['uid']})")
             # opencli 优先 (有 date 字段); bili 作为兜底 (无 date)
